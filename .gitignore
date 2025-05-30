@@ -1,0 +1,5 @@
+# If it's in the root folder:
+db_conn.php
+
+# Or, if it's in a folder (e.g., includes/):
+includes/db_conn.php
