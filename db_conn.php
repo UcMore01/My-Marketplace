@@ -54,5 +54,5 @@ class Database {
 
 // Usage example in other PHP files:
 // $db = Database::getInstance()->getConnection();
-$conn = new Database();
+$db = Database::getInstance()->getConnection();
 ?>
