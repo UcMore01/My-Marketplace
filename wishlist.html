@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Wishlist</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</head>
+<body>
+    
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="index.html">Marketplace</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
+                    <li class="nav-item"><a class="nav-link" href="profile.html">Profile</a></li>
+                    <li class="nav-item"><a class="nav-link" href="cart.html">Cart</a></li>
+                    <li class="nav-item"><a class="nav-link active" href="wishlist.html">Wishlist</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+    
+    <div class="container mt-5">
+        <h2>My Wishlist</h2>
+        <div class="row" id="wishlistItems">
+            <!-- Wishlist items will be loaded dynamically -->
+        </div>
+    </div>
+
+    <script>
+                document.addEventListener("DOMContentLoaded", function () {
+    fetchWishlist();
+});
+
+function fetchWishlist() {
+    fetch("wishlist_api.php", { method: "GET", credentials: "include" })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === "success") {
+                displayWishlist(data.wishlist);
+            } else {
+                alert("Failed to load wishlist");
+            }
+        })
+        .catch(error => console.error("Error fetching wishlist:", error));
+}
+
+function displayWishlist(wishlist) {
+    const wishlistContainer = document.getElementById("wishlistItems");
+    wishlistContainer.innerHTML = "";
+
+    wishlist.forEach(item => {
+        const itemDiv = document.createElement("div");
+        itemDiv.classList.add("card", "mb-3");
+        itemDiv.innerHTML = `
+            <div class="row g-0">
+                <div class="col-md-4">
+                    <img src="${item.image}" class="img-fluid rounded-start" alt="${item.name}">
+                </div>
+                <div class="col-md-8">
+                    <div class="card-body">
+                        <h5 class="card-title">${item.name}</h5>
+                        <p class="card-text">$${item.price}</p>
+                        <button class="btn btn-danger btn-sm" onclick="removeFromWishlist(${item.product_id})">Remove</button>
+                        <button class="btn btn-primary btn-sm" onclick="moveToCart(${item.product_id})">Move to Cart</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        wishlistContainer.appendChild(itemDiv);
+    });
+}
+
+function removeFromWishlist(productId) {
+    fetch("wishlist_api.php", {
+        method: "DELETE",
+        credentials: "include",
+        body: JSON.stringify({ product_id: productId }),
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === "success") {
+            alert("Product removed from wishlist");
+            fetchWishlist();
+        } else {
+            alert("Failed to remove product");
+        }
+    })
+    .catch(error => console.error("Error removing wishlist item:", error));
+}
+
+function moveToCart(productId) {
+    fetch("wishlist_api.php", {
+        method: "PUT",
+        credentials: "include",
+        body: JSON.stringify({ product_id: productId }),
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === "success") {
+            alert("Product moved to cart");
+            fetchWishlist();
+        } else {
+            alert("Failed to move product to cart");
+        }
+    })
+    .catch(error => console.error("Error moving wishlist item to cart:", error));
+}
+
+    </script>
+</body>
+</html>
