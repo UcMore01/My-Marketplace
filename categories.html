@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Categories</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</head>
+<body>
+
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="index.html">Marketplace</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
+                    <li class="nav-item"><a class="nav-link" href="profile.html">Profile</a></li>
+                    <li class="nav-item"><a class="nav-link" href="cart.html">Cart</a></li>
+                    <li class="nav-item"><a class="nav-link" href="wishlist.html">Wishlist</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <!-- Search Bar -->
+        <div class="mb-4">
+            <input type="text" class="form-control" id="searchBar" placeholder="Search categories...">
+        </div>
+
+        <div class="row">
+            <!-- Sidebar Filters -->
+            <div class="col-md-3">
+                <h4>Filters</h4>
+                <div class="mb-3">
+                    <label class="form-label">Price Range</label>
+                    <input type="range" class="form-range">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Brand</label>
+                    <select class="form-select">
+                        <option>All Brands</option>
+                        <option>Brand A</option>
+                        <option>Brand B</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Rating</label>
+                    <select class="form-select">
+                        <option>Any Rating</option>
+                        <option>4 Stars & Up</option>
+                        <option>3 Stars & Up</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Categories Section -->
+            <div class="col-md-9">
+                <h2 class="mb-4">Shop by Category</h2>
+                <div class="row" id="categoryList">
+                    <div class="col-md-4">
+                        <a href="products.html?category=electronics" class="text-decoration-none">
+                            <div class="card">
+                                <img src="images/electronics.jpg" class="card-img-top" alt="Electronics">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title">Electronics</h5>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                    <div class="col-md-4">
+                        <a href="products.html?category=clothing" class="text-decoration-none">
+                            <div class="card">
+                                <img src="images/clothing.jpg" class="card-img-top" alt="Clothing">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title">Clothing</h5>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                    <div class="col-md-4">
+                        <a href="products.html?category=home_appliances" class="text-decoration-none">
+                            <div class="card">
+                                <img src="images/home_appliances.jpg" class="card-img-top" alt="Home Appliances">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title">Home Appliances</h5>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Simple search function
+        document.getElementById('searchBar').addEventListener('input', function() {
+            let filter = this.value.toLowerCase();
+            let categories = document.querySelectorAll('#categoryList .col-md-4');
+            
+            categories.forEach(category => {
+                let title = category.querySelector('.card-title').innerText.toLowerCase();
+                if (title.includes(filter)) {
+                    category.style.display = "block";
+                } else {
+                    category.style.display = "none";
+                }
+            });
+        });
+    </script>
+
+</body>
+</html>

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Terms & Conditions</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</head>
+<body>
+    
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="index.html">Marketplace</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
+                    <li class="nav-item"><a class="nav-link" href="profile.html">Profile</a></li>
+                    <li class="nav-item"><a class="nav-link" href="orders.html">Orders</a></li>
+                    <li class="nav-item"><a class="nav-link" href="customer_support.html">Support</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#" onclick="logout()">Logout</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+    
+    <div class="container mt-5">
+        <h2 class="text-center">Terms & Conditions</h2>
+        <p class="text-center">Please read these terms carefully before using our services.</p>
+        
+        <div class="card p-4">
+            <h4>1. Introduction</h4>
+            <p>By using this marketplace, you agree to comply with these terms. If you do not agree, please do not use our services.</p>
+            
+            <h4>2. User Responsibilities</h4>
+            <ul>
+                <li>Users must provide accurate and up-to-date information.</li>
+                <li>Fraudulent or misleading activities will result in account suspension.</li>
+                <li>Users are responsible for keeping their account credentials secure.</li>
+            </ul>
+            
+            <h4>3. Payments & Transactions</h4>
+            <ul>
+                <li>All transactions must be completed through our secure payment system.</li>
+                <li>We are not liable for external transactions made outside our platform.</li>
+                <li>Refund and return policies apply as stated in our <a href="refund_return_policy.html">Refund Policy</a>.</li>
+            </ul>
+            
+            <h4>4. Intellectual Property</h4>
+            <p>All content, trademarks, and materials on this site are the property of the marketplace and may not be used without permission.</p>
+            
+            <h4>5. Limitation of Liability</h4>
+            <p>We are not responsible for direct, indirect, or incidental damages caused by the use of our platform.</p>
+            
+            <h4>6. Dispute Resolution</h4>
+            <p>In case of disputes, users agree to settle matters through arbitration as outlined in our policies.</p>
+            
+            <h4>7. Amendments</h4>
+            <p>We reserve the right to update these terms at any time. Users will be notified of significant changes.</p>
+        </div>
+    </div>
+
+    <script>
+        function logout() {
+            alert("Logging out...");
+            window.location.href = "logout.html";
+        }
+    </script>
+</body>
+</html>

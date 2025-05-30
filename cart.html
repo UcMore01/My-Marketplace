@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Shopping Cart</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</head>
+<body>
+    
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="index.html">Marketplace</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
+                    <li class="nav-item"><a class="nav-link" href="profile.html">Profile</a></li>
+                    <li class="nav-item"><a class="nav-link active" href="cart.html">Cart</a></li>
+                    <li class="nav-item"><a class="nav-link" href="wishlist.html">Wishlist</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+    
+    <div class="container mt-5">
+        <h2>Shopping Cart</h2>
+        <div class="table-responsive">
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Price</th>
+                        <th>Quantity</th>
+                        <th>Total</th>
+                        <th>Remove</th>
+                    </tr>
+                </thead>
+                <tbody id="cartItems">
+                    <!-- Cart items will be loaded here dynamically -->
+                </tbody>
+            </table>
+        </div>
+        <div class="d-flex justify-content-between">
+            <h4>Total: <span id="cartTotal">$0.00</span></h4>
+            <a href="checkout.html" class="btn btn-success">Proceed to checkout</a>
+        </div>
+    </div>
+
+    <script>
+  document.addEventListener("DOMContentLoaded", function () {
+    loadCartItems(); // Load cart items on page load
+
+    // Event delegation for dynamically added elements
+    document.body.addEventListener("click", function (e) {
+        if (e.target.classList.contains("add-to-cart-btn")) {
+            addToCart(e.target.dataset.id);
+        } else if (e.target.classList.contains("remove-from-cart-btn")) {
+            removeFromCart(e.target.dataset.id);
+        } else if (e.target.id === "checkout-btn") {
+            window.location.href = "checkout.html";
+        }
+    });
+});
+
+// Function to add item to cart
+function addToCart(productId) {
+    fetch("cart_api.php", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "add", product_id: productId })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert("Item added to cart!");
+            loadCartItems(); // Refresh cart items
+        } else {
+            alert(data.message);
+        }
+    });
+}
+
+// Function to remove item from cart
+function removeFromCart(productId) {
+    fetch("cart_api.php", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "remove", product_id: productId })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert("Item removed from cart!");
+            loadCartItems(); // Refresh cart items
+        } else {
+            alert("Failed to remove item.");
+        }
+    });
+}
+
+// Function to load cart items dynamically
+function loadCartItems() {
+    fetch("cart_api.php?action=view")
+    .then(response => response.json())
+    .then(data => {
+        let cartContainer = document.getElementById("cart-items");
+        let cartCount = document.getElementById("cart-count");
+
+        if (data.success) {
+            cartContainer.innerHTML = "";
+            cartCount.innerText = data.cart_count;
+
+            data.items.forEach(item => {
+                cartContainer.innerHTML += `
+                    <tr>
+                        <td><img src="${item.image}" width="50"></td>
+                        <td>${item.name}</td>
+                        <td>${item.price}</td>
+                        <td>${item.quantity}</td>
+                        <td>
+                            <button class="btn btn-danger remove-from-cart-btn" data-id="${item.product_id}">Remove</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        } else {
+            cartContainer.innerHTML = "<tr><td colspan='5' class='text-center'>Cart is empty</td></tr>";
+            cartCount.innerText = "0";
+        }
+    });
+}
+
+    fetch("cart_api.php", {
+        method: "POST",
+        body: new URLSearchParams({ action: "checkout" }),
+        headers: { "Content-Type": "application/x-www-form-urlencoded" }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === "redirect") {
+            window.location.href = data.url;
+        } else {
+            alert(data.message);
+        }
+    });
+</script>
+</body>
+</html>
