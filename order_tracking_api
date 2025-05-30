@@ -1,0 +1,37 @@
+<?php
+require_once "db_conn.php"; // Connects to database
+
+header('Content-Type: application/json');
+
+if (!isset($_GET['order_id'])) {
+    echo json_encode(["status" => "error", "message" => "Order ID is required"]);
+    exit;
+}
+
+$order_id = intval($_GET['order_id']);
+
+// Fetch order details
+$orderQuery = $pdo->prepare("SELECT order_id, estimated_delivery FROM orders WHERE order_id = ?");
+$orderQuery->execute([$order_id]);
+$order = $orderQuery->fetch(PDO::FETCH_ASSOC);
+
+if (!$order) {
+    echo json_encode(["status" => "error", "message" => "Order not found"]);
+    exit;
+}
+
+// Fetch tracking history
+$trackingQuery = $pdo->prepare("SELECT status, location, updated_at FROM order_tracking WHERE order_id = ? ORDER BY updated_at ASC");
+$trackingQuery->execute([$order_id]);
+$trackingData = $trackingQuery->fetchAll(PDO::FETCH_ASSOC);
+
+// Response
+$response = [
+    "status" => "success",
+    "order_id" => $order['order_id'],
+    "estimated_delivery" => $order['estimated_delivery'],
+    "tracking" => $trackingData
+];
+
+echo json_encode($response);
+?>

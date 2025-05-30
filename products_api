@@ -1,0 +1,72 @@
+<?php
+session_start();
+require_once "db_conn.php"; // Connects to database
+
+header("Content-Type: application/json");
+
+$method = $_SERVER["REQUEST_METHOD"];
+
+if ($method === "GET") {
+    // Fetch products
+    fetchProducts();
+} elseif ($method === "POST") {
+    // Check if the user is logged in as a seller
+    if (!isset($_SESSION["user_id"])) {
+        echo json_encode(["status" => "error", "message" => "Unauthorized access. Please log in."]);
+        exit();
+    }
+    addProduct();
+} else {
+    echo json_encode(["status" => "error", "message" => "Invalid request method"]);
+    exit();
+}
+
+// ✅ **Function to Fetch Products**
+function fetchProducts()
+{
+    global $conn;
+    $stmt = $conn->prepare("SELECT * FROM products ORDER BY created_at DESC");
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    $products = [];
+    while ($row = $result->fetch_assoc()) {
+        $products[] = $row;
+    }
+
+    echo json_encode(["status" => "success", "products" => $products]);
+}
+
+// ✅ **Function to Add a Product (For Sellers)**
+function addProduct()
+{
+    global $conn;
+
+    // Validate Input
+    $seller_id = $_SESSION["user_id"]; // Logged-in seller
+    $name = trim($_POST["name"]);
+    $description = trim($_POST["description"]);
+    $price = $_POST["price"];
+    $category = $_POST["category"];
+
+    // Ensure a file is uploaded
+    if (!isset($_FILES["image"]) || $_FILES["image"]["error"] != UPLOAD_ERR_OK) {
+        echo json_encode(["status" => "error", "message" => "Invalid image file"]);
+        exit();
+    }
+
+    // Secure File Upload Handling
+    $imagePath = "uploads/" . basename($_FILES["image"]["name"]);
+    move_uploaded_file($_FILES["image"]["tmp_name"], $imagePath);
+
+    // Insert into Database Securely
+    $stmt = $conn->prepare("INSERT INTO products (seller_id, name, description, price, image, category) VALUES (?, ?, ?, ?, ?, ?)");
+    $stmt->bind_param("issdss", $seller_id, $name, $description, $price, $imagePath, $category);
+
+    if ($stmt->execute()) {
+        echo json_encode(["status" => "success", "message" => "Product added successfully"]);
+    } else {
+        echo json_encode(["status" => "error", "message" => "Failed to add product"]);
+    }
+}
+?>

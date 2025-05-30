@@ -1,0 +1,48 @@
+<?php
+
+require_once "db_conn.php"; // Connects to database
+
+header("Content-Type: application/json");
+
+// Check if user is logged in
+if (!isset($_SESSION['user_id'])) {
+    echo json_encode(["status" => "error", "message" => "User not authenticated"]);
+    exit;
+}
+
+$user_id = $_SESSION['user_id'];
+$total_amount = 0;
+$cart_items = json_decode(file_get_contents("php://input"), true);
+
+if (empty($cart_items)) {
+    echo json_encode(["status" => "error", "message" => "Cart is empty"]);
+    exit;
+}
+
+try {
+    $conn->beginTransaction();
+
+    // Insert Order
+    $stmt = $conn->prepare("INSERT INTO orders (user_id, total_amount, status) VALUES (?, ?, 'Pending')");
+    $stmt->execute([$user_id, $total_amount]);
+    $order_id = $conn->lastInsertId();
+
+    // Insert Order Items
+    foreach ($cart_items as $item) {
+        $stmt = $conn->prepare("INSERT INTO order_items (order_id, product_id, quantity, price) VALUES (?, ?, ?, ?)");
+        $stmt->execute([$order_id, $item['product_id'], $item['quantity'], $item['price']]);
+        $total_amount += $item['quantity'] * $item['price'];
+    }
+
+    // Update Order Total Amount
+    $stmt = $conn->prepare("UPDATE orders SET total_amount = ? WHERE order_id = ?");
+    $stmt->execute([$total_amount, $order_id]);
+
+    $conn->commit();
+    echo json_encode(["status" => "success", "message" => "Order placed", "order_id" => $order_id]);
+
+} catch (Exception $e) {
+    $conn->rollBack();
+    echo json_encode(["status" => "error", "message" => "Checkout failed", "error" => $e->getMessage()]);
+}
+?>

@@ -1,0 +1,95 @@
+<?php
+require_once "db_conn.php"; // Connects to database
+
+
+header("Content-Type: application/json");
+
+
+// Check if the user is logged in
+if (!isset($_SESSION['user_id'])) {
+    echo json_encode(["status" => "error", "message" => "Unauthorized"]);
+    exit();
+}
+
+$user_id = $_SESSION['user_id'];
+$method = $_SERVER['REQUEST_METHOD'];
+
+if ($method === "GET") {
+    // Fetch wishlist items for the logged-in user
+    $query = "SELECT w.id, w.product_id, p.name, p.price, p.image 
+              FROM wishlist w 
+              JOIN products p ON w.product_id = p.id 
+              WHERE w.user_id = ?";
+    
+    $stmt = $conn->prepare($query);
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    $wishlist = [];
+    while ($row = $result->fetch_assoc()) {
+        $wishlist[] = $row;
+    }
+
+    echo json_encode(["status" => "success", "wishlist" => $wishlist]);
+    exit();
+
+} elseif ($method === "POST") {
+    // Add a product to the wishlist
+    $data = json_decode(file_get_contents("php://input"), true);
+    $product_id = $data['product_id'];
+
+    $query = "INSERT INTO wishlist (user_id, product_id) VALUES (?, ?)";
+    $stmt = $conn->prepare($query);
+    $stmt->bind_param("ii", $user_id, $product_id);
+    
+    if ($stmt->execute()) {
+        echo json_encode(["status" => "success", "message" => "Product added to wishlist"]);
+    } else {
+        echo json_encode(["status" => "error", "message" => "Failed to add product"]);
+    }
+    exit();
+
+} elseif ($method === "DELETE") {
+    // Remove item from wishlist
+    $data = json_decode(file_get_contents("php://input"), true);
+    $product_id = $data['product_id'];
+
+    $query = "DELETE FROM wishlist WHERE user_id = ? AND product_id = ?";
+    $stmt = $conn->prepare($query);
+    $stmt->bind_param("ii", $user_id, $product_id);
+    
+    if ($stmt->execute()) {
+        echo json_encode(["status" => "success", "message" => "Product removed from wishlist"]);
+    } else {
+        echo json_encode(["status" => "error", "message" => "Failed to remove product"]);
+    }
+    exit();
+
+} elseif ($method === "PUT") {
+    // Move item from wishlist to cart
+    $data = json_decode(file_get_contents("php://input"), true);
+    $product_id = $data['product_id'];
+
+    // Remove from wishlist
+    $delete_query = "DELETE FROM wishlist WHERE user_id = ? AND product_id = ?";
+    $delete_stmt = $conn->prepare($delete_query);
+    $delete_stmt->bind_param("ii", $user_id, $product_id);
+    $delete_stmt->execute();
+
+    // Add to cart
+    $cart_query = "INSERT INTO cart (user_id, product_id, quantity) VALUES (?, ?, 1)";
+    $cart_stmt = $conn->prepare($cart_query);
+    $cart_stmt->bind_param("ii", $user_id, $product_id);
+    
+    if ($cart_stmt->execute()) {
+        echo json_encode(["status" => "success", "message" => "Item moved to cart"]);
+    } else {
+        echo json_encode(["status" => "error", "message" => "Failed to move item"]);
+    }
+    exit();
+}
+
+echo json_encode(["status" => "error", "message" => "Invalid request"]);
+exit();
+?>

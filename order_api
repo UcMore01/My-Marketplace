@@ -1,0 +1,56 @@
+<?php
+session_start();
+header("Content-Type: application/json");
+require_once "db_conn.php"; // Connects to database
+
+$response = ["status" => "error", "message" => "Invalid request"];
+
+if (!isset($_SESSION['user_id'])) {
+    echo json_encode(["status" => "error", "message" => "Unauthorized access"]);
+    exit();
+}
+
+$user_id = $_SESSION['user_id'];
+$action = isset($_GET['action']) ? $_GET['action'] : '';
+
+// ** Place an Order (From Cart) **
+if ($action == "place_order") {
+    $query = "INSERT INTO orders (user_id, product_id, quantity, total_price, status)
+              SELECT user_id, product_id, quantity, (quantity * price) AS total_price, 'Pending'
+              FROM cart WHERE user_id = ?";
+    $stmt = $conn->prepare($query);
+    $stmt->bind_param("i", $user_id);
+
+    if ($stmt->execute()) {
+        // Clear cart after placing order
+        $conn->query("DELETE FROM cart WHERE user_id = $user_id");
+        $response = ["status" => "success", "message" => "Order placed successfully"];
+    } else {
+        $response = ["status" => "error", "message" => "Order placement failed"];
+    }
+}
+
+// ** View Orders for Logged-in User **
+elseif ($action == "view_orders") {
+    $query = "SELECT orders.id, products.name, orders.quantity, orders.total_price, orders.status
+              FROM orders JOIN products ON orders.product_id = products.id
+              WHERE orders.user_id = ?";
+    $stmt = $conn->prepare($query);
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    $orders = [];
+    while ($row = $result->fetch_assoc()) {
+        $orders[] = $row;
+    }
+
+    $response = ["status" => "success", "orders" => $orders];
+}
+
+
+
+
+
+echo json_encode($response);
+?>

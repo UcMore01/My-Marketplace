@@ -1,0 +1,101 @@
+<?php
+require_once "config.php"; // Database connection
+
+header("Content-Type: application/json");
+
+$method = $_SERVER['REQUEST_METHOD'];
+
+if ($method === "POST") {
+    $action = isset($_POST['action']) ? $_POST['action'] : '';
+
+    switch ($action) {
+        case "register":
+            registerUser();
+            break;
+        case "login":
+            loginUser();
+            break;
+        case "update_profile":
+            updateProfile();
+            break;
+        default:
+            echo json_encode(["status" => "error", "message" => "Invalid action"]);
+    }
+} else {
+    echo json_encode(["status" => "error", "message" => "Invalid request method"]);
+}
+
+function registerUser() {
+    global $conn;
+    $name = htmlspecialchars(trim($_POST['name']));
+    $email = filter_var($_POST['email'], FILTER_VALIDATE_EMAIL);
+    $password = password_hash($_POST['password'], PASSWORD_BCRYPT);
+    
+    if (!$email) {
+        echo json_encode(["status" => "error", "message" => "Invalid email address"]);
+        return;
+    }
+    
+    $checkUser = $conn->prepare("SELECT id FROM users WHERE email = ?");
+    $checkUser->execute([$email]);
+    if ($checkUser->rowCount() > 0) {
+        echo json_encode(["status" => "error", "message" => "Email already exists"]);
+        return;
+    }
+    
+    $stmt = $conn->prepare("INSERT INTO users (name, email, password) VALUES (?, ?, ?)");
+    if ($stmt->execute([$name, $email, $password])) {
+        echo json_encode(["status" => "success", "message" => "User registered successfully"]);
+    } else {
+        echo json_encode(["status" => "error", "message" => "Registration failed"]);
+    }
+}
+
+function loginUser() {
+    global $conn;
+    $email = filter_var($_POST['email'], FILTER_VALIDATE_EMAIL);
+    $password = $_POST['password'];
+    
+    if (!$email) {
+        echo json_encode(["status" => "error", "message" => "Invalid email address"]);
+        return;
+    }
+    
+    $stmt = $conn->prepare("SELECT id, name, password FROM users WHERE email = ?");
+    $stmt->execute([$email]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if ($user && password_verify($password, $user['password'])) {
+        session_start();
+        $_SESSION['user_id'] = $user['id'];
+        echo json_encode(["status" => "success", "message" => "Login successful", "user" => $user]);
+    } else {
+        echo json_encode(["status" => "error", "message" => "Invalid credentials"]);
+    }
+}
+
+function updateProfile() {
+    session_start();
+    if (!isset($_SESSION['user_id'])) {
+        echo json_encode(["status" => "error", "message" => "Unauthorized access"]);
+        return;
+    }
+    
+    global $conn;
+    $userId = $_SESSION['user_id'];
+    $name = htmlspecialchars(trim($_POST['name']));
+    $email = filter_var($_POST['email'], FILTER_VALIDATE_EMAIL);
+    
+    if (!$email) {
+        echo json_encode(["status" => "error", "message" => "Invalid email address"]);
+        return;
+    }
+    
+    $stmt = $conn->prepare("UPDATE users SET name = ?, email = ? WHERE id = ?");
+    if ($stmt->execute([$name, $email, $userId])) {
+        echo json_encode(["status" => "success", "message" => "Profile updated successfully"]);
+    } else {
+        echo json_encode(["status" => "error", "message" => "Profile update failed"]);
+    }
+}
+?>

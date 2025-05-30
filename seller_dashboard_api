@@ -1,0 +1,51 @@
+<?php
+require_once "db_conn.php"; // Connects to database
+
+header("Content-Type: application/json");
+
+if ($_SERVER["REQUEST_METHOD"] === "GET") {
+    $seller_id = $_GET['seller_id'];
+
+    if (!$seller_id) {
+        echo json_encode(["success" => false, "message" => "Seller ID is required"]);
+        exit;
+    }
+
+    // Fetch seller's products
+    $productQuery = "SELECT * FROM products WHERE seller_id = ?";
+    $stmt = $conn->prepare($productQuery);
+    $stmt->bind_param("i", $seller_id);
+    $stmt->execute();
+    $productResult = $stmt->get_result();
+
+    $products = [];
+    while ($product = $productResult->fetch_assoc()) {
+        // Decode JSON images from products table
+        $product['images'] = json_decode($product['images'], true);
+
+        // Fetch product details (specifications & images)
+        $detailsQuery = "SELECT id, specification, images FROM product_details WHERE product_id = ?";
+        $stmt2 = $conn->prepare($detailsQuery);
+        $stmt2->bind_param("i", $product['id']);
+        $stmt2->execute();
+        $detailsResult = $stmt2->get_result();
+
+        $specifications = [];
+        while ($detail = $detailsResult->fetch_assoc()) {
+            $detail['images'] = json_decode($detail['images'], true); // Decode JSON images
+            $specifications[] = $detail;
+        }
+
+        // Attach specifications to product
+        $product['specifications'] = $specifications;
+        $products[] = $product;
+    }
+
+    echo json_encode(["success" => true, "products" => $products]);
+
+    $stmt->close();
+    $conn->close();
+} else {
+    echo json_encode(["success" => false, "message" => "Invalid request method"]);
+}
+?>

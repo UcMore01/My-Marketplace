@@ -1,0 +1,53 @@
+<?php
+require_once "db_conn.php"; // Connects to database
+header('Content-Type: application/json');
+
+session_start();
+if (!isset($_SESSION['user_id'])) {
+    echo json_encode(["status" => "error", "message" => "User not logged in"]);
+    exit;
+}
+
+$data = json_decode(file_get_contents("php://input"), true);
+if (!$data || !isset($data['cart']) || count($data['cart']) === 0) {
+    echo json_encode(["status" => "error", "message" => "Cart is empty"]);
+    exit;
+}
+
+$user_id = $_SESSION['user_id'];
+$cart = $data['cart']; // Cart items received from frontend
+
+try {
+    $pdo->beginTransaction(); // Start transaction
+
+    // Calculate total price
+    $total_price = 0;
+    foreach ($cart as $item) {
+        $total_price += $item['price'] * $item['quantity'];
+    }
+
+    // Insert into orders table
+    $estimated_delivery = date('Y-m-d', strtotime('+5 days'));
+    $stmt = $pdo->prepare("INSERT INTO orders (user_id, total_price, estimated_delivery) VALUES (?, ?, ?)");
+    $stmt->execute([$user_id, $total_price, $estimated_delivery]);
+    $order_id = $pdo->lastInsertId();
+
+    // Insert each item into order_items table
+    $stmt = $pdo->prepare("INSERT INTO order_items (order_id, product_id, quantity, price) VALUES (?, ?, ?, ?)");
+    foreach ($cart as $item) {
+        $stmt->execute([$order_id, $item['product_id'], $item['quantity'], $item['price']]);
+    }
+
+    $pdo->commit(); // Commit transaction
+
+    echo json_encode([
+        "status" => "success",
+        "message" => "Order placed successfully",
+        "order_id" => $order_id,
+        "estimated_delivery" => $estimated_delivery
+    ]);
+} catch (Exception $e) {
+    $pdo->rollBack(); // Rollback transaction on error
+    echo json_encode(["status" => "error", "message" => "Order failed: " . $e->getMessage()]);
+}
+?>
