@@ -1,67 +1,153 @@
 <?php
 session_start();
-require_once "db_conn.php"; // Database connection
-
+require_once "db_conn.php"; // $pdo (PDO instance)
 header("Content-Type: application/json");
 
 // Ensure user is logged in
 if (!isset($_SESSION['user_id'])) {
+    http_response_code(401);
     echo json_encode(["success" => false, "message" => "You must be logged in."]);
     exit();
 }
 
 $userId = $_SESSION['user_id'];
-$data = json_decode(file_get_contents("php://input"), true);
 
-// Handle different cart actions
+// POST: Add or remove cart items
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    if ($data['action'] == "add" && isset($data['product_id'])) {
-        $productId = intval($data['product_id']);
-
-        // Prevent duplicate cart entries
-        $stmt = $conn->prepare("INSERT INTO cart (user_id, product_id, quantity) VALUES (?, ?, 1) 
-                                ON DUPLICATE KEY UPDATE quantity = quantity + 1");
-        $stmt->bind_param("ii", $userId, $productId);
-
-        if ($stmt->execute()) {
-            echo json_encode(["success" => true]);
-        } else {
-            echo json_encode(["success" => false, "message" => "Failed to add item to cart."]);
-        }
+    $data = json_decode(file_get_contents("php://input"), true);
+    if (!isset($data['action']) || !isset($data['product_id'])) {
+        http_response_code(400);
+        echo json_encode(["success" => false, "message" => "Invalid request."]);
+        exit();
     }
+    $productId = intval($data['product_id']);
 
-    elseif ($data['action'] == "remove" && isset($data['product_id'])) {
-        $productId = intval($data['product_id']);
-        $stmt = $conn->prepare("DELETE FROM cart WHERE user_id = ? AND product_id = ?");
-        $stmt->bind_param("ii", $userId, $productId);
-
-        if ($stmt->execute()) {
-            echo json_encode(["success" => true]);
+    try {
+        if ($data['action'] === "add") {
+            // Add or update quantity
+            $stmt = $pdo->prepare("
+                INSERT INTO cart (user_id, product_id, quantity) 
+                VALUES (?, ?, 1)
+                ON DUPLICATE KEY UPDATE quantity = quantity + 1
+            ");
+            $result = $stmt->execute([$userId, $productId]);
+            echo json_encode(["success" => $result]);
+        } elseif ($data['action'] === "remove") {
+            $stmt = $pdo->prepare("DELETE FROM cart WHERE user_id = ? AND product_id = ?");
+            $result = $stmt->execute([$userId, $productId]);
+            echo json_encode(["success" => $result]);
         } else {
-            echo json_encode(["success" => false, "message" => "Failed to remove item."]);
+            http_response_code(400);
+            echo json_encode(["success" => false, "message" => "Unknown action."]);
         }
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(["success" => false, "message" => "Database error: " . $e->getMessage()]);
     }
+    exit();
 }
 
-// View cart items
-if ($_GET['action'] == "view") {
-    $stmt = $conn->prepare("SELECT p.product_id, p.name, p.price, p.image, c.quantity 
-                            FROM cart c 
-                            JOIN products p ON c.product_id = p.product_id 
-                            WHERE c.user_id = ?");
-    $stmt->bind_param("i", $userId);
-    $stmt->execute();
-    $result = $stmt->get_result();
-
-    $items = [];
-    while ($row = $result->fetch_assoc()) {
-        $items[] = $row;
+// GET: View cart items
+if ($_SERVER["REQUEST_METHOD"] === "GET" && isset($_GET['action']) && $_GET['action'] === "view") {
+    try {
+        $stmt = $pdo->prepare("
+            SELECT 
+                p.id AS product_id, p.name, p.price, p.image, c.quantity 
+            FROM cart c
+            JOIN products p ON c.product_id = p.id
+            WHERE c.user_id = ?
+        ");
+        $stmt->execute([$userId]);
+        $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        echo json_encode([
+            "success" => true,
+            "cart_count" => count($items),
+            "items" => $items
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(["success" => false, "message" => "Database error: " . $e->getMessage()]);
     }
-
-    echo json_encode([
-        "success" => true,
-        "cart_count" => count($items),
-        "items" => $items
-    ]);
+    exit();
 }
+
+// If no valid endpoint matched
+http_response_code(400);
+echo json_encode(["success" => false, "message" => "Invalid request."]);
+?><?php
+session_start();
+require_once "db_conn.php"; // $pdo (PDO instance)
+header("Content-Type: application/json");
+
+// Ensure user is logged in
+if (!isset($_SESSION['user_id'])) {
+    http_response_code(401);
+    echo json_encode(["success" => false, "message" => "You must be logged in."]);
+    exit();
+}
+
+$userId = $_SESSION['user_id'];
+
+// POST: Add or remove cart items
+if ($_SERVER["REQUEST_METHOD"] === "POST") {
+    $data = json_decode(file_get_contents("php://input"), true);
+    if (!isset($data['action']) || !isset($data['product_id'])) {
+        http_response_code(400);
+        echo json_encode(["success" => false, "message" => "Invalid request."]);
+        exit();
+    }
+    $productId = intval($data['product_id']);
+
+    try {
+        if ($data['action'] === "add") {
+            // Add or update quantity
+            $stmt = $pdo->prepare("
+                INSERT INTO cart (user_id, product_id, quantity) 
+                VALUES (?, ?, 1)
+                ON DUPLICATE KEY UPDATE quantity = quantity + 1
+            ");
+            $result = $stmt->execute([$userId, $productId]);
+            echo json_encode(["success" => $result]);
+        } elseif ($data['action'] === "remove") {
+            $stmt = $pdo->prepare("DELETE FROM cart WHERE user_id = ? AND product_id = ?");
+            $result = $stmt->execute([$userId, $productId]);
+            echo json_encode(["success" => $result]);
+        } else {
+            http_response_code(400);
+            echo json_encode(["success" => false, "message" => "Unknown action."]);
+        }
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(["success" => false, "message" => "Database error: " . $e->getMessage()]);
+    }
+    exit();
+}
+
+// GET: View cart items
+if ($_SERVER["REQUEST_METHOD"] === "GET" && isset($_GET['action']) && $_GET['action'] === "view") {
+    try {
+        $stmt = $pdo->prepare("
+            SELECT 
+                p.id AS product_id, p.name, p.price, p.image, c.quantity 
+            FROM cart c
+            JOIN products p ON c.product_id = p.id
+            WHERE c.user_id = ?
+        ");
+        $stmt->execute([$userId]);
+        $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        echo json_encode([
+            "success" => true,
+            "cart_count" => count($items),
+            "items" => $items
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(["success" => false, "message" => "Database error: " . $e->getMessage()]);
+    }
+    exit();
+}
+
+// If no valid endpoint matched
+http_response_code(400);
+echo json_encode(["success" => false, "message" => "Invalid request."]);
 ?>
