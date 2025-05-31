@@ -1,19 +1,19 @@
 <?php
 header("Content-Type: application/json");
-require_once "db_conn.php"; // Should define $pdo (PDO instance)
+require_once "db_conn.php"; // $pdo (PDO instance)
 
 $response = ["success" => false, "message" => "Invalid request"];
 
 try {
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-        // If ?list=categories, return all categories
+        // 1. Fetch all categories: ?list=categories
         if (isset($_GET['list']) && $_GET['list'] === 'categories') {
             $stmt = $pdo->prepare("SELECT id, name, description FROM categories");
             $stmt->execute();
             $categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $response = ["success" => true, "categories" => $categories];
         }
-        // If ?category_id=X, return products in that category
+        // 2. Fetch all products in a category: ?category_id=X
         elseif (isset($_GET['category_id']) && intval($_GET['category_id']) > 0) {
             $category_id = intval($_GET['category_id']);
             $stmt = $pdo->prepare("SELECT * FROM products WHERE category_id = ?");
@@ -21,7 +21,7 @@ try {
             $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $response = ["success" => true, "products" => $products];
         }
-        // Otherwise, return all products
+        // 3. Fetch all products (no filter)
         else {
             $stmt = $pdo->prepare("SELECT * FROM products");
             $stmt->execute();
