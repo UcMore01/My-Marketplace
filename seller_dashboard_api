@@ -1,85 +1,67 @@
 <?php
-session_start();
+require_once "db_conn.php"; // Sets up $pdo
+
 header("Content-Type: application/json");
-require_once "db_conn.php"; // This sets up $pdo
 
-$response = ["status" => "error", "message" => "Invalid request"];
+if ($_SERVER["REQUEST_METHOD"] === "GET") {
+    $seller_id = $_GET['seller_id'] ?? null;
 
-if (!isset($_SESSION['user_id'])) {
-    echo json_encode(["status" => "error", "message" => "Unauthorized access"]);
-    exit();
-}
-
-$user_id = $_SESSION['user_id'];
-$action = isset($_GET['action']) ? $_GET['action'] : '';
-
-// ** Place an Order (From Cart) **
-if ($action == "place_order") {
-    // Insert order(s) for all cart items for this user
-    try {
-        $pdo->beginTransaction();
-
-        // Select all cart items for this user
-        $cartQuery = $pdo->prepare("SELECT product_id, quantity FROM cart WHERE user_id = ?");
-        $cartQuery->execute([$user_id]);
-        $cartItems = $cartQuery->fetchAll(PDO::FETCH_ASSOC);
-
-        if (!$cartItems) {
-            echo json_encode(["status" => "error", "message" => "Your cart is empty."]);
-            exit();
-        }
-
-        // Insert each cart item as an order
-        $orderQuery = $pdo->prepare("INSERT INTO orders (user_id, product_id, quantity, total_price, status) VALUES (?, ?, ?, ?, 'Pending')");
-        foreach ($cartItems as $item) {
-            // Fetch product price for the item
-            $priceQuery = $pdo->prepare("SELECT price FROM products WHERE id = ?");
-            $priceQuery->execute([$item['product_id']]);
-            $product = $priceQuery->fetch(PDO::FETCH_ASSOC);
-            $total_price = $product ? $item['quantity'] * $product['price'] : 0;
-
-            $orderQuery->execute([$user_id, $item['product_id'], $item['quantity'], $total_price]);
-        }
-
-        // Clear the cart after placing the order(s)
-        $clearCart = $pdo->prepare("DELETE FROM cart WHERE user_id = ?");
-        $clearCart->execute([$user_id]);
-
-        $pdo->commit();
-        $response = ["status" => "success", "message" => "Order placed successfully"];
-    } catch (Exception $e) {
-        $pdo->rollBack();
-        error_log("Order placement error: " . $e->getMessage());
-        $response = ["status" => "error", "message" => "Order placement failed"];
+    if (!$seller_id) {
+        echo json_encode(["success" => false, "message" => "Seller ID is required"]);
+        exit;
     }
-}
 
-// ** View Orders for Logged-in User **
-elseif ($action == "view_orders") {
     try {
-        $query = "SELECT 
-                    orders.id AS order_id,
-                    orders.created_at AS date,
-                    products.name AS items,
-                    orders.total_price,
-                    orders.status
-                  FROM orders
-                  JOIN products ON orders.product_id = products.id
-                  WHERE orders.user_id = ?
-                  ORDER BY orders.created_at DESC";
-        $stmt = $pdo->prepare($query);
-        $stmt->execute([$user_id]);
-        $orders = [];
-        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            // Optionally format date here
-            $orders[] = $row;
-        }
-        $response = ["status" => "success", "orders" => $orders];
-    } catch (Exception $e) {
-        error_log("View orders error: " . $e->getMessage());
-        $response = ["status" => "error", "message" => "Could not fetch orders"];
-    }
-}
+        // Sales stats
+        $stats = [
+            "total_sales" => 0,
+            "total_orders" => 0,
+            "pending_orders" => 0,
+        ];
 
-echo json_encode($response);
+        // Total sales (sum of all completed orders for this seller)
+        $stmt = $pdo->prepare("SELECT SUM(orders.total_price) as total_sales FROM orders JOIN products ON orders.product_id = products.id WHERE products.seller_id = ? AND orders.status = 'Completed'");
+        $stmt->execute([$seller_id]);
+        $stats["total_sales"] = floatval($stmt->fetchColumn() ?: 0);
+
+        // Total orders
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM orders JOIN products ON orders.product_id = products.id WHERE products.seller_id = ?");
+        $stmt->execute([$seller_id]);
+        $stats["total_orders"] = intval($stmt->fetchColumn() ?: 0);
+
+        // Pending orders
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM orders JOIN products ON orders.product_id = products.id WHERE products.seller_id = ? AND orders.status = 'Pending'");
+        $stmt->execute([$seller_id]);
+        $stats["pending_orders"] = intval($stmt->fetchColumn() ?: 0);
+
+        // Fetch seller's products
+        $productQuery = "SELECT * FROM products WHERE seller_id = ?";
+        $stmt = $pdo->prepare($productQuery);
+        $stmt->execute([$seller_id]);
+        $products = [];
+
+        while ($product = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            // Fetch product details (specifications & images)
+            $detailsQuery = "SELECT specification, images FROM product_details WHERE product_id = ?";
+            $stmt2 = $pdo->prepare($detailsQuery);
+            $stmt2->execute([$product['id']]);
+            $specifications = [];
+            while ($detail = $stmt2->fetch(PDO::FETCH_ASSOC)) {
+                $spec = $detail['specification'];
+                $imgs = json_decode($detail['images'], true);
+                $specifications[$spec] = $imgs;
+            }
+            // Structure for frontend: details as JSON string of {specification: [img, img, ...], ...}
+            $product['details'] = json_encode($specifications);
+            $products[] = $product;
+        }
+
+        echo json_encode(["success" => true, "stats" => $stats, "products" => $products]);
+    } catch (Exception $e) {
+        error_log("Seller dashboard API error: " . $e->getMessage());
+        echo json_encode(["success" => false, "message" => "Error loading dashboard data."]);
+    }
+} else {
+    echo json_encode(["success" => false, "message" => "Invalid request method"]);
+}
 ?>
