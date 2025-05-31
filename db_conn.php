@@ -1,58 +1,45 @@
 <?php
 class Database {
-    private $host = "localhost";  // Change if needed
-    private $user = "root";       // Your MySQL username
-    private $pass = "";           // Your MySQL password
-    private $db_name = "marketplace"; // Your database name
+    private $host = "localhost";
+    private $user = "root";
+    private $pass = "";
+    private $db_name = "marketplace";
     private $conn;
     private static $instance = null;
 
-    // Private constructor to prevent direct object creation
     private function __construct() {
-        $this->conn = new mysqli($this->host, $this->user, $this->pass, $this->db_name);
-        
-        // Check connection
-        if ($this->conn->connect_error) {
-            die("Connection failed: " . $this->conn->connect_error);
+        $dsn = "mysql:host=$this->host;dbname=$this->db_name;charset=utf8mb4";
+        try {
+            $this->conn = new PDO($dsn, $this->user, $this->pass, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::ATTR_EMULATE_PREPARES => false
+            ]);
+        } catch (PDOException $e) {
+            error_log("Database connection failed: " . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(["status" => "error", "message" => "Could not connect to the database."]);
+            exit;
         }
-
-        // Set character encoding
-        $this->conn->set_charset("utf8");
     }
 
-    // Get an instance of the class (Singleton Pattern)
     public static function getInstance() {
-        if (self::$instance == null) {
+        if (self::$instance === null) {
             self::$instance = new Database();
         }
         return self::$instance;
     }
 
-    // Get the database connection
     public function getConnection() {
         return $this->conn;
     }
 
-    // Prevent object cloning
     private function __clone() {}
-
-    // Close connection (Optional)
     public function closeConnection() {
-        if ($this->conn) {
-            $this->conn->close();
-        }
-    }
-
-    public function beginTransaction(){
-
-    }
-
-    public function prepare($query){
-        return $query;
+        $this->conn = null;
     }
 }
 
-// Usage example in other PHP files:
-// $db = Database::getInstance()->getConnection();
-$db = Database::getInstance()->getConnection();
+// Usage:
+$pdo = Database::getInstance()->getConnection();
 ?>
