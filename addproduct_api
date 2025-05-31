@@ -1,72 +1,52 @@
 <?php
-require_once "db_conn.php"; // Connects to database
+session_start();
+require_once "db_conn.php"; // sets up $pdo
 
 header("Content-Type: application/json");
 
-if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    $seller_id = $_POST['seller_id']; 
-    $name = $_POST['name'];
-    $description = $_POST['description'];
-    $price = $_POST['price'];
-    $category_id = $_POST['category_id'];
-    $specifications = json_decode($_POST['specifications'], true); // JSON array
-    $main_images = $_FILES['images']; // Main product images
-
-    if (!$seller_id || !$name || !$price || !$category_id || empty($specifications)) {
-        echo json_encode(["success" => false, "message" => "Missing required fields"]);
-        exit;
-    }
-
-    // Handle main product image uploads
-    $uploadedImages = [];
-    foreach ($main_images['tmp_name'] as $key => $tmp_name) {
-        $imageName = uniqid() . "_" . basename($main_images['name'][$key]);
-        $imagePath = "uploads/" . $imageName;
-        if (move_uploaded_file($tmp_name, $imagePath)) {
-            $uploadedImages[] = $imagePath;
-        }
-    }
-
-    $imageJson = json_encode($uploadedImages);
-
-    // Insert into `products` table
-    $stmt = $conn->prepare("INSERT INTO products (seller_id, name, description, price, category_id, images) VALUES (?, ?, ?, ?, ?, ?)");
-    $stmt->bind_param("issdis", $seller_id, $name, $description, $price, $category_id, $imageJson);
-    
-    if ($stmt->execute()) {
-        $product_id = $stmt->insert_id;
-
-        // Insert specifications with images into `product_details`
-        foreach ($specifications as $spec) {
-            $specText = $spec['specification'];
-            $specImages = $_FILES[$spec['image_key']];
-
-            $specImagePaths = [];
-            foreach ($specImages['tmp_name'] as $key => $tmp_name) {
-                $specImageName = uniqid() . "_" . basename($specImages['name'][$key]);
-                $specImagePath = "uploads/" . $specImageName;
-                if (move_uploaded_file($tmp_name, $specImagePath)) {
-                    $specImagePaths[] = $specImagePath;
-                }
-            }
-
-            $specImagesJson = json_encode($specImagePaths);
-
-            $stmt2 = $conn->prepare("INSERT INTO product_details (product_id, specification, images) VALUES (?, ?, ?)");
-            $stmt2->bind_param("iss", $product_id, $specText, $specImagesJson);
-            $stmt2->execute();
-            $stmt2->close();
-        }
-
-        echo json_encode(["success" => true, "message" => "Product added successfully"]);
-    } else {
-        echo json_encode(["success" => false, "message" => "Error adding product"]);
-    }
-
-    $stmt->close();
-} else {
+if ($_SERVER["REQUEST_METHOD"] !== "POST") {
     echo json_encode(["success" => false, "message" => "Invalid request method"]);
+    exit();
 }
 
-$conn->close();
+if (!isset($_SESSION['user_id'])) {
+    echo json_encode(["success" => false, "message" => "Unauthorized"]);
+    exit();
+}
+
+$seller_id = $_SESSION['user_id'];
+$name = trim($_POST['name'] ?? "");
+$description = trim($_POST['description'] ?? "");
+$price = $_POST['price'] ?? 0;
+$category_id = $_POST['category_id'] ?? null;
+
+// Only one image expected
+$main_image = $_FILES['image'] ?? null;
+
+if (!$name || !$price || !$category_id || !$main_image) {
+    echo json_encode(["success" => false, "message" => "Missing required fields"]);
+    exit();
+}
+
+// Handle main product image upload
+$imagePath = null;
+if ($main_image && $main_image['tmp_name']) {
+    $imageName = uniqid() . "_" . basename($main_image['name']);
+    $imagePath = "uploads/" . $imageName;
+    if (!move_uploaded_file($main_image['tmp_name'], $imagePath)) {
+        echo json_encode(["success" => false, "message" => "Failed to upload image"]);
+        exit();
+    }
+} else {
+    echo json_encode(["success" => false, "message" => "Image upload error"]);
+    exit();
+}
+
+try {
+    $stmt = $pdo->prepare("INSERT INTO products (seller_id, name, description, price, category_id, image) VALUES (?, ?, ?, ?, ?, ?)");
+    $stmt->execute([$seller_id, $name, $description, $price, $category_id, $imagePath]);
+    echo json_encode(["success" => true, "message" => "Product added successfully"]);
+} catch (Exception $e) {
+    echo json_encode(["success" => false, "message" => "Error adding product", "error" => $e->getMessage()]);
+}
 ?>
