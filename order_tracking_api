@@ -6,16 +6,19 @@ header('Content-Type: application/json');
 if (!isset($_GET['order_id'])) {
     echo json_encode(["status" => "error", "message" => "Order ID is required"]);
     exit;
+// Error handling
+error_log("Order tracking error: " . json_encode($_GET));
+$order_id = $_GET['order_id'];
+if (!is_numeric($order_id) || intval($order_id) <= 0) {
+  echo json_encode(["status" => "error", "message" => "Invalid Order ID"]);
+     exit;
 }
-
-$order_id = intval($_GET['order_id']);
-
-// Fetch order details
-$orderQuery = $pdo->prepare("SELECT order_id, estimated_delivery FROM orders WHERE order_id = ?");
+$order_id = intval($order_id);
 $orderQuery->execute([$order_id]);
 $order = $orderQuery->fetch(PDO::FETCH_ASSOC);
 
 if (!$order) {
+error_log("Order tracking error: " . json_encode($_GET));
     echo json_encode(["status" => "error", "message" => "Order not found"]);
     exit;
 }
