@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Categories</title>
+    <title>Products</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </head>
@@ -30,85 +30,237 @@
     <div class="container mt-4">
         <!-- Search Bar -->
         <div class="mb-4">
-            <input type="text" class="form-control" id="searchBar" placeholder="Search categories...">
+            <input type="text" class="form-control" id="searchBar" placeholder="Search products...">
         </div>
 
         <div class="row">
-            <div class="col-md-12">
-                <h2 class="mb-4">Shop by Category</h2>
-                <div class="row" id="categoryList">
-                    <!-- Categories will be loaded here dynamically -->
+            <!-- Sidebar Filters -->
+            <div class="col-md-3">
+                <h4>Filters</h4>
+                <div class="mb-3">
+                    <label class="form-label">Price Range</label>
+                    <input type="range" class="form-range" min="0" max="1000" step="1" id="priceRange">
+                    <span id="priceRangeValue">$0 - $1000</span>
                 </div>
-                <div id="noResults" class="text-center text-muted mt-4" style="display: none;">No categories found.</div>
+                <div class="mb-3">
+                    <label class="form-label">Brand</label>
+                    <select class="form-select" id="brandFilter">
+                        <option value="All Brands">All Brands</option>
+                        <!-- Brands will be populated dynamically -->
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Rating</label>
+                    <select class="form-select" id="ratingFilter">
+                        <option value="Any Rating">Any Rating</option>
+                        <option value="4">4 Stars & Up</option>
+                        <option value="3">3 Stars & Up</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Product Listings -->
+            <div class="col-md-9">
+                <h2 class="mb-4" id="categoryTitle">Products</h2>
+                <div class="row" id="productList">
+                    <!-- Products will be loaded here dynamically -->
+                </div>
+                <div id="noResults" class="text-center text-muted mt-4" style="display: none;">No products found.</div>
             </div>
         </div>
     </div>
 
     <script>
-        let categories = [];
+        // Globals
+        let products = [];
+        let minPrice = 0;
+        let maxPrice = 1000;
+        let categoryId = null;
 
-        // Fetch categories from backend
-        function fetchCategories() {
+        // DOM Elements
+        const productList = document.getElementById("productList");
+        const searchBar = document.getElementById("searchBar");
+        const priceRange = document.getElementById("priceRange");
+        const priceRangeValue = document.getElementById("priceRangeValue");
+        const brandFilter = document.getElementById("brandFilter");
+        const ratingFilter = document.getElementById("ratingFilter");
+        const noResults = document.getElementById("noResults");
+        const categoryTitle = document.getElementById("categoryTitle");
+
+        // Get category_id from URL
+        function getQueryParam(name) {
+            const url = new URL(window.location.href);
+            return url.searchParams.get(name);
+        }
+
+        // Fetch products from API
+        function fetchProducts() {
+            let url = "products_api";
+            categoryId = getQueryParam('category_id');
+            if (categoryId) {
+                url += "?category_id=" + encodeURIComponent(categoryId);
+            }
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === "success" && Array.isArray(data.products)) {
+                        products = data.products;
+                        populateBrands(products);
+                        setPriceRange(products);
+                        displayProducts(products);
+                        if (categoryId) fetchCategoryName(categoryId);
+                    } else {
+                        productList.innerHTML = "";
+                        noResults.style.display = "block";
+                    }
+                })
+                .catch(error => {
+                    productList.innerHTML = "";
+                    noResults.style.display = "block";
+                    console.error("Error fetching products:", error);
+                });
+        }
+
+        // Fetch and display category name
+        function fetchCategoryName(categoryId) {
             fetch("categories_api?list=categories")
                 .then(response => response.json())
                 .then(data => {
                     if (data.success && Array.isArray(data.categories)) {
-                        categories = data.categories;
-                        displayCategories(categories);
-                    } else {
-                        document.getElementById('categoryList').innerHTML = "";
-                        document.getElementById('noResults').style.display = "block";
+                        const cat = data.categories.find(c => c.id == categoryId);
+                        if (cat) categoryTitle.innerText = cat.name + " Products";
                     }
-                })
-                .catch(error => {
-                    document.getElementById('categoryList').innerHTML = "";
-                    document.getElementById('noResults').style.display = "block";
-                    console.error("Error fetching categories:", error);
                 });
         }
 
-        // Display categories in the DOM
-        function displayCategories(filteredCategories) {
-            const categoryList = document.getElementById('categoryList');
-            categoryList.innerHTML = "";
-            document.getElementById('noResults').style.display = filteredCategories.length === 0 ? "block" : "none";
-
-            filteredCategories.forEach(category => {
-                // Optional: You can add images for categories with a naming convention, e.g., images/category_<id>.jpg
-                const imagePath = `images/category_${category.id}.jpg`; // fallback if you want a default image per category
-                const categoryCard = `
-                    <div class="col-md-4 mb-4">
-                        <a href="products.html?category_id=${category.id}" class="text-decoration-none">
-                            <div class="card h-100">
-                                <img src="${imagePath}" class="card-img-top" alt="${category.name}"
-                                    onerror="this.onerror=null;this.src='images/no-image.png';">
-                                <div class="card-body text-center">
-                                    <h5 class="card-title">${category.name}</h5>
-                                    ${category.description ? `<p class="card-text">${category.description}</p>` : ""}
-                                </div>
-                            </div>
-                        </a>
-                    </div>
-                `;
-                categoryList.innerHTML += categoryCard;
+        // Populate brand filter options dynamically
+        function populateBrands(products) {
+            const brands = new Set();
+            products.forEach(product => {
+                if (product.brand && product.brand.trim() !== "") {
+                    brands.add(product.brand);
+                }
+            });
+            // Clear previous options except 'All Brands'
+            brandFilter.innerHTML = '<option value="All Brands">All Brands</option>';
+            brands.forEach(brand => {
+                brandFilter.innerHTML += `<option value="${brand}">${brand}</option>`;
             });
         }
 
-        // Filter categories based on search
-        function filterCategories() {
-            const searchQuery = document.getElementById('searchBar').value.toLowerCase();
-            const filtered = categories.filter(category =>
-                category.name.toLowerCase().includes(searchQuery) ||
-                (category.description && category.description.toLowerCase().includes(searchQuery))
-            );
-            displayCategories(filtered);
+        // Set price range slider based on product data
+        function setPriceRange(products) {
+            let prices = products.map(p => parseFloat(p.price) || 0);
+            if (prices.length > 0) {
+                minPrice = Math.floor(Math.min(...prices));
+                maxPrice = Math.ceil(Math.max(...prices));
+            } else {
+                minPrice = 0;
+                maxPrice = 1000;
+            }
+            priceRange.min = minPrice;
+            priceRange.max = maxPrice;
+            priceRange.value = maxPrice;
+            priceRangeValue.innerText = `$${minPrice} - $${priceRange.value}`;
         }
 
-        // Event listeners
-        document.getElementById('searchBar').addEventListener('input', filterCategories);
+        // Display products in the DOM
+        function displayProducts(filteredProducts) {
+            productList.innerHTML = "";
+            noResults.style.display = filteredProducts.length === 0 ? "block" : "none";
 
-        // Initial fetch on page load
-        document.addEventListener("DOMContentLoaded", fetchCategories);
+            filteredProducts.forEach(product => {
+                const productCard = `
+                    <div class="col-md-4 mb-4">
+                        <div class="card h-100">
+                            <img src="${product.image ? product.image : 'images/no-image.png'}" class="card-img-top" alt="${product.name}">
+                            <div class="card-body text-center">
+                                <h5 class="card-title">${product.name}</h5>
+                                <p class="card-text mb-1">$${Number(product.price).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</p>
+                                <p class="card-text mb-1"><small class="text-muted">${product.brand ? product.brand : ''}</small></p>
+                                <p class="card-text mb-1"><small class="text-warning">${renderStars(product.rating)}</small></p>
+                                <a href="product_details.html?product=${product.id}" class="btn btn-primary mb-2">View Details</a>
+                                <button class="btn btn-success add-to-cart" 
+                                    data-id="${product.id}" 
+                                    data-name="${product.name}" 
+                                    data-price="${product.price}" 
+                                    data-image="${product.image}">
+                                    Add to Cart
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                productList.innerHTML += productCard;
+            });
+
+            // Attach event listeners to "Add to Cart" buttons
+            document.querySelectorAll(".add-to-cart").forEach(button => {
+                button.addEventListener("click", addToCart);
+            });
+        }
+
+        // Render rating stars
+        function renderStars(rating) {
+            rating = parseInt(rating) || 0;
+            let stars = "";
+            for (let i = 1; i <= 5; i++) {
+                stars += i <= rating ? "★" : "☆";
+            }
+            return stars;
+        }
+
+        // Add product to cart (localStorage)
+        function addToCart(event) {
+            const button = event.target;
+            const product = {
+                id: button.getAttribute("data-id"),
+                name: button.getAttribute("data-name"),
+                price: button.getAttribute("data-price"),
+                image: button.getAttribute("data-image"),
+            };
+
+            let cart = JSON.parse(localStorage.getItem("cart")) || [];
+            cart.push(product);
+            localStorage.setItem("cart", JSON.stringify(cart));
+            alert(`${product.name} added to cart!`);
+        }
+
+        // Filter products according to user input
+        function filterProducts() {
+            let searchQuery = searchBar.value.toLowerCase();
+            let selectedBrand = brandFilter.value;
+            let selectedRating = ratingFilter.value;
+            let selectedMaxPrice = parseFloat(priceRange.value);
+
+            priceRangeValue.innerText = `$${minPrice} - $${selectedMaxPrice}`;
+
+            let filtered = products.filter(product => {
+                // Check search
+                let matchSearch = product.name.toLowerCase().includes(searchQuery);
+                // Check brand
+                let matchBrand = selectedBrand === "All Brands" || product.brand === selectedBrand;
+                // Check rating
+                let matchRating = selectedRating === "Any Rating" || (parseInt(product.rating) >= parseInt(selectedRating));
+                // Check price
+                let matchPrice = parseFloat(product.price) <= selectedMaxPrice;
+                return matchSearch && matchBrand && matchRating && matchPrice;
+            });
+
+            displayProducts(filtered);
+        }
+
+        // Event listeners for filtering
+        searchBar.addEventListener("input", filterProducts);
+        brandFilter.addEventListener("change", filterProducts);
+        ratingFilter.addEventListener("change", filterProducts);
+        priceRange.addEventListener("input", filterProducts);
+
+        // Load all products on page load
+        document.addEventListener("DOMContentLoaded", function () {
+            fetchProducts();
+        });
     </script>
+
 </body>
 </html>
