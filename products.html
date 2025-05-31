@@ -39,22 +39,22 @@
                 <h4>Filters</h4>
                 <div class="mb-3">
                     <label class="form-label">Price Range</label>
-                    <input type="range" class="form-range">
+                    <input type="range" class="form-range" min="0" max="1000" step="1" id="priceRange">
+                    <span id="priceRangeValue">$0 - $1000</span>
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Brand</label>
-                    <select class="form-select">
-                        <option>All Brands</option>
-                        <option>Brand A</option>
-                        <option>Brand B</option>
+                    <select class="form-select" id="brandFilter">
+                        <option value="All Brands">All Brands</option>
+                        <!-- Brands will be populated dynamically -->
                     </select>
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Rating</label>
-                    <select class="form-select">
-                        <option>Any Rating</option>
-                        <option>4 Stars & Up</option>
-                        <option>3 Stars & Up</option>
+                    <select class="form-select" id="ratingFilter">
+                        <option value="Any Rating">Any Rating</option>
+                        <option value="4">4 Stars & Up</option>
+                        <option value="3">3 Stars & Up</option>
                     </select>
                 </div>
             </div>
@@ -63,150 +63,177 @@
             <div class="col-md-9">
                 <h2 class="mb-4">Products</h2>
                 <div class="row" id="productList">
-                    <div class="col-md-4">
-                        <div class="card">
-                            <img src="images/product1.jpg" class="card-img-top" alt="Product 1">
-                            <div class="card-body text-center">
-                                <h5 class="card-title">Product 1</h5>
-                                <p class="card-text">$50.00</p>
-                                <a href="product_details.html?product=1" class="btn btn-primary">View Details</a>
-                                <a href="cart.html" class="btn btn-success">Add to Cart</a>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="card">
-                            <img src="images/product2.jpg" class="card-img-top" alt="Product 2">
-                            <div class="card-body text-center">
-                                <h5 class="card-title">Product 2</h5>
-                                <p class="card-text">$75.00</p>
-                                <a href="product_details.html?product=2" class="btn btn-primary">View Details</a>
-                                <a href="cart.html" class="btn btn-success">Add to Cart</a>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="card">
-                            <img src="images/product3.jpg" class="card-img-top" alt="Product 3">
-                            <div class="card-body text-center">
-                                <h5 class="card-title">Product 3</h5>
-                                <p class="card-text">$100.00</p>
-                                <a href="product_details.html?product=3" class="btn btn-primary">View Details</a>
-                                <a href="cart.html" class="btn btn-success">Add to Cart</a>
-                            </div>
-                        </div>
-                    </div>
+                    <!-- Products will be loaded here dynamically -->
                 </div>
+                <div id="noResults" class="text-center text-muted mt-4" style="display: none;">No products found.</div>
             </div>
         </div>
     </div>
 
     <script>
-        // Simple search function
-        document.getElementById('searchBar').addEventListener('input', function() {
-            let filter = this.value.toLowerCase();
-            let products = document.querySelectorAll('#productList .col-md-4');
-            
+        // Globals
+        let products = [];
+        let minPrice = 0;
+        let maxPrice = 1000;
+
+        // DOM Elements
+        const productList = document.getElementById("productList");
+        const searchBar = document.getElementById("searchBar");
+        const priceRange = document.getElementById("priceRange");
+        const priceRangeValue = document.getElementById("priceRangeValue");
+        const brandFilter = document.getElementById("brandFilter");
+        const ratingFilter = document.getElementById("ratingFilter");
+        const noResults = document.getElementById("noResults");
+
+        // Fetch products from API
+        function fetchProducts() {
+            fetch("products_api")
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === "success" && Array.isArray(data.products)) {
+                        products = data.products;
+                        populateBrands(products);
+                        setPriceRange(products);
+                        displayProducts(products);
+                    } else {
+                        productList.innerHTML = "";
+                        noResults.style.display = "block";
+                    }
+                })
+                .catch(error => {
+                    productList.innerHTML = "";
+                    noResults.style.display = "block";
+                    console.error("Error fetching products:", error);
+                });
+        }
+
+        // Populate brand filter options dynamically
+        function populateBrands(products) {
+            const brands = new Set();
             products.forEach(product => {
-                let title = product.querySelector('.card-title').innerText.toLowerCase();
-                if (title.includes(filter)) {
-                    product.style.display = "block";
-                } else {
-                    product.style.display = "none";
+                if (product.brand && product.brand.trim() !== "") {
+                    brands.add(product.brand);
                 }
             });
-        });
+            // Clear previous options except 'All Brands'
+            brandFilter.innerHTML = '<option value="All Brands">All Brands</option>';
+            brands.forEach(brand => {
+                brandFilter.innerHTML += `<option value="${brand}">${brand}</option>`;
+            });
+        }
 
-        document.addEventListener("DOMContentLoaded", function () {
-    const productList = document.getElementById("productList");
-    const searchBar = document.getElementById("searchBar");
-    const priceRange = document.querySelector(".form-range");
-    const brandFilter = document.querySelector(".form-select:nth-of-type(1)");
-    const ratingFilter = document.querySelector(".form-select:nth-of-type(2)");
+        // Set price range slider based on product data
+        function setPriceRange(products) {
+            let prices = products.map(p => parseFloat(p.price) || 0);
+            if (prices.length > 0) {
+                minPrice = Math.floor(Math.min(...prices));
+                maxPrice = Math.ceil(Math.max(...prices));
+            } else {
+                minPrice = 0;
+                maxPrice = 1000;
+            }
+            priceRange.min = minPrice;
+            priceRange.max = maxPrice;
+            priceRange.value = maxPrice;
+            priceRangeValue.innerText = `$${minPrice} - $${priceRange.value}`;
+        }
 
-    let products = []; // Store fetched products
+        // Display products in the DOM
+        function displayProducts(filteredProducts) {
+            productList.innerHTML = "";
+            noResults.style.display = filteredProducts.length === 0 ? "block" : "none";
 
-    // Function to fetch products from API
-    function fetchProducts() {
-        fetch("product_api.php")
-            .then(response => response.json())
-            .then(data => {
-                products = data.products; // Store products
-                displayProducts(products); // Show products on page load
-            })
-            .catch(error => console.error("Error fetching products:", error));
-    }
-
-    // Function to display products
-    function displayProducts(filteredProducts) {
-        productList.innerHTML = ""; // Clear previous products
-
-        filteredProducts.forEach(product => {
-            const productCard = `
-                <div class="col-md-4">
-                    <div class="card">
-                        <img src="${product.image}" class="card-img-top" alt="${product.name}">
-                        <div class="card-body text-center">
-                            <h5 class="card-title">${product.name}</h5>
-                            <p class="card-text">$${product.price}</p>
-                            <a href="product_details.html?product=${product.id}" class="btn btn-primary">View Details</a>
-                            <button class="btn btn-success add-to-cart" data-id="${product.id}" data-name="${product.name}" data-price="${product.price}" data-image="${product.image}">Add to Cart</button>
+            filteredProducts.forEach(product => {
+                const productCard = `
+                    <div class="col-md-4 mb-4">
+                        <div class="card h-100">
+                            <img src="${product.image ? product.image : 'images/no-image.png'}" class="card-img-top" alt="${product.name}">
+                            <div class="card-body text-center">
+                                <h5 class="card-title">${product.name}</h5>
+                                <p class="card-text mb-1">$${Number(product.price).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</p>
+                                <p class="card-text mb-1"><small class="text-muted">${product.brand ? product.brand : ''}</small></p>
+                                <p class="card-text mb-1"><small class="text-warning">${renderStars(product.rating)}</small></p>
+                                <a href="product_details.html?product=${product.id}" class="btn btn-primary mb-2">View Details</a>
+                                <button class="btn btn-success add-to-cart" 
+                                    data-id="${product.id}" 
+                                    data-name="${product.name}" 
+                                    data-price="${product.price}" 
+                                    data-image="${product.image}">
+                                    Add to Cart
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            `;
-            productList.innerHTML += productCard;
+                `;
+                productList.innerHTML += productCard;
+            });
+
+            // Attach event listeners to "Add to Cart" buttons
+            document.querySelectorAll(".add-to-cart").forEach(button => {
+                button.addEventListener("click", addToCart);
+            });
+        }
+
+        // Render rating stars
+        function renderStars(rating) {
+            rating = parseInt(rating) || 0;
+            let stars = "";
+            for (let i = 1; i <= 5; i++) {
+                stars += i <= rating ? "★" : "☆";
+            }
+            return stars;
+        }
+
+        // Add product to cart (localStorage)
+        function addToCart(event) {
+            const button = event.target;
+            const product = {
+                id: button.getAttribute("data-id"),
+                name: button.getAttribute("data-name"),
+                price: button.getAttribute("data-price"),
+                image: button.getAttribute("data-image"),
+            };
+
+            let cart = JSON.parse(localStorage.getItem("cart")) || [];
+            cart.push(product);
+            localStorage.setItem("cart", JSON.stringify(cart));
+            alert(`${product.name} added to cart!`);
+        }
+
+        // Filter products according to user input
+        function filterProducts() {
+            let searchQuery = searchBar.value.toLowerCase();
+            let selectedBrand = brandFilter.value;
+            let selectedRating = ratingFilter.value;
+            let selectedMaxPrice = parseFloat(priceRange.value);
+
+            priceRangeValue.innerText = `$${minPrice} - $${selectedMaxPrice}`;
+
+            let filtered = products.filter(product => {
+                // Check search
+                let matchSearch = product.name.toLowerCase().includes(searchQuery);
+                // Check brand
+                let matchBrand = selectedBrand === "All Brands" || product.brand === selectedBrand;
+                // Check rating
+                let matchRating = selectedRating === "Any Rating" || (parseInt(product.rating) >= parseInt(selectedRating));
+                // Check price
+                let matchPrice = parseFloat(product.price) <= selectedMaxPrice;
+                return matchSearch && matchBrand && matchRating && matchPrice;
+            });
+
+            displayProducts(filtered);
+        }
+
+        // Event listeners for filtering
+        searchBar.addEventListener("input", filterProducts);
+        brandFilter.addEventListener("change", filterProducts);
+        ratingFilter.addEventListener("change", filterProducts);
+        priceRange.addEventListener("input", filterProducts);
+
+        // Load all products on page load
+        document.addEventListener("DOMContentLoaded", function () {
+            fetchProducts();
         });
-
-        // Attach event listeners to "Add to Cart" buttons
-        document.querySelectorAll(".add-to-cart").forEach(button => {
-            button.addEventListener("click", addToCart);
-        });
-    }
-
-    // Function to add items to the cart
-    function addToCart(event) {
-        const button = event.target;
-        const product = {
-            id: button.getAttribute("data-id"),
-            name: button.getAttribute("data-name"),
-            price: button.getAttribute("data-price"),
-            image: button.getAttribute("data-image"),
-        };
-
-        let cart = JSON.parse(localStorage.getItem("cart")) || [];
-        cart.push(product); // Add product to cart
-        localStorage.setItem("cart", JSON.stringify(cart)); // Save to local storage
-
-        alert(`${product.name} added to cart!`);
-    }
-
-    // Function to filter products
-    function filterProducts() {
-        let searchQuery = searchBar.value.toLowerCase();
-        let selectedBrand = brandFilter.value;
-        let selectedRating = ratingFilter.value;
-
-        let filtered = products.filter(product => {
-            return (
-                product.name.toLowerCase().includes(searchQuery) &&
-                (selectedBrand === "All Brands" || product.brand === selectedBrand) &&
-                (selectedRating === "Any Rating" || product.rating >= parseInt(selectedRating[0]))
-            );
-        });
-
-        displayProducts(filtered);
-    }
-
-    // Event listeners for filtering
-    searchBar.addEventListener("input", filterProducts);
-    brandFilter.addEventListener("change", filterProducts);
-    ratingFilter.addEventListener("change", filterProducts);
-
-    // Load products on page load
-    fetchProducts();
-});
-
     </script>
 
 </body>
