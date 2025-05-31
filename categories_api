@@ -1,32 +1,37 @@
 <?php
 header("Content-Type: application/json");
-require_once "db_conn.php"; // Connects to database
+require_once "db_conn.php"; // Should define $pdo (PDO instance)
 
 $response = ["success" => false, "message" => "Invalid request"];
 
-// Fetch products by category
-if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    $category_id = isset($_GET['category_id']) ? intval($_GET['category_id']) : 0;
-
-    if ($category_id > 0) {
-        $stmt = $conn->prepare("SELECT * FROM products WHERE category_id = ?");
-        $stmt->bind_param("i", $category_id);
-    } else {
-        $stmt = $conn->prepare("SELECT * FROM products");
+try {
+    if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+        // If ?list=categories, return all categories
+        if (isset($_GET['list']) && $_GET['list'] === 'categories') {
+            $stmt = $pdo->prepare("SELECT id, name, description FROM categories");
+            $stmt->execute();
+            $categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $response = ["success" => true, "categories" => $categories];
+        }
+        // If ?category_id=X, return products in that category
+        elseif (isset($_GET['category_id']) && intval($_GET['category_id']) > 0) {
+            $category_id = intval($_GET['category_id']);
+            $stmt = $pdo->prepare("SELECT * FROM products WHERE category_id = ?");
+            $stmt->execute([$category_id]);
+            $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $response = ["success" => true, "products" => $products];
+        }
+        // Otherwise, return all products
+        else {
+            $stmt = $pdo->prepare("SELECT * FROM products");
+            $stmt->execute();
+            $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $response = ["success" => true, "products" => $products];
+        }
     }
-
-    $stmt->execute();
-    $result = $stmt->get_result();
-    
-    $products = [];
-    while ($row = $result->fetch_assoc()) {
-        $products[] = $row;
-    }
-
-    $response = ["success" => true, "products" => $products];
-    $stmt->close();
+} catch (Exception $e) {
+    $response = ["success" => false, "message" => "Database error: " . $e->getMessage()];
 }
 
-$conn->close();
 echo json_encode($response);
 ?>
