@@ -34,86 +34,81 @@
         </div>
 
         <div class="row">
-            <!-- Sidebar Filters -->
-            <div class="col-md-3">
-                <h4>Filters</h4>
-                <div class="mb-3">
-                    <label class="form-label">Price Range</label>
-                    <input type="range" class="form-range">
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Brand</label>
-                    <select class="form-select">
-                        <option>All Brands</option>
-                        <option>Brand A</option>
-                        <option>Brand B</option>
-                    </select>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Rating</label>
-                    <select class="form-select">
-                        <option>Any Rating</option>
-                        <option>4 Stars & Up</option>
-                        <option>3 Stars & Up</option>
-                    </select>
-                </div>
-            </div>
-
-            <!-- Categories Section -->
-            <div class="col-md-9">
+            <div class="col-md-12">
                 <h2 class="mb-4">Shop by Category</h2>
                 <div class="row" id="categoryList">
-                    <div class="col-md-4">
-                        <a href="products.html?category=electronics" class="text-decoration-none">
-                            <div class="card">
-                                <img src="images/electronics.jpg" class="card-img-top" alt="Electronics">
-                                <div class="card-body text-center">
-                                    <h5 class="card-title">Electronics</h5>
-                                </div>
-                            </div>
-                        </a>
-                    </div>
-                    <div class="col-md-4">
-                        <a href="products.html?category=clothing" class="text-decoration-none">
-                            <div class="card">
-                                <img src="images/clothing.jpg" class="card-img-top" alt="Clothing">
-                                <div class="card-body text-center">
-                                    <h5 class="card-title">Clothing</h5>
-                                </div>
-                            </div>
-                        </a>
-                    </div>
-                    <div class="col-md-4">
-                        <a href="products.html?category=home_appliances" class="text-decoration-none">
-                            <div class="card">
-                                <img src="images/home_appliances.jpg" class="card-img-top" alt="Home Appliances">
-                                <div class="card-body text-center">
-                                    <h5 class="card-title">Home Appliances</h5>
-                                </div>
-                            </div>
-                        </a>
-                    </div>
+                    <!-- Categories will be loaded here dynamically -->
                 </div>
+                <div id="noResults" class="text-center text-muted mt-4" style="display: none;">No categories found.</div>
             </div>
         </div>
     </div>
 
     <script>
-        // Simple search function
-        document.getElementById('searchBar').addEventListener('input', function() {
-            let filter = this.value.toLowerCase();
-            let categories = document.querySelectorAll('#categoryList .col-md-4');
-            
-            categories.forEach(category => {
-                let title = category.querySelector('.card-title').innerText.toLowerCase();
-                if (title.includes(filter)) {
-                    category.style.display = "block";
-                } else {
-                    category.style.display = "none";
-                }
-            });
-        });
-    </script>
+        let categories = [];
 
+        // Fetch categories from backend
+        function fetchCategories() {
+            fetch("categories_api?list=categories")
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && Array.isArray(data.categories)) {
+                        categories = data.categories;
+                        displayCategories(categories);
+                    } else {
+                        document.getElementById('categoryList').innerHTML = "";
+                        document.getElementById('noResults').style.display = "block";
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('categoryList').innerHTML = "";
+                    document.getElementById('noResults').style.display = "block";
+                    console.error("Error fetching categories:", error);
+                });
+        }
+
+        // Display categories in the DOM
+        function displayCategories(filteredCategories) {
+            const categoryList = document.getElementById('categoryList');
+            categoryList.innerHTML = "";
+            document.getElementById('noResults').style.display = filteredCategories.length === 0 ? "block" : "none";
+
+            filteredCategories.forEach(category => {
+                // Optional: You can add images for categories with a naming convention, e.g., images/category_<id>.jpg
+                const imagePath = `images/category_${category.id}.jpg`; // fallback if you want a default image per category
+                const categoryCard = `
+                    <div class="col-md-4 mb-4">
+                        <a href="products.html?category_id=${category.id}" class="text-decoration-none">
+                            <div class="card h-100">
+                                <img src="${imagePath}" class="card-img-top" alt="${category.name}"
+                                    onerror="this.onerror=null;this.src='images/no-image.png';">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title">${category.name}</h5>
+                                    ${category.description ? `<p class="card-text">${category.description}</p>` : ""}
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                `;
+                categoryList.innerHTML += categoryCard;
+            });
+        }
+
+        // Filter categories based on search
+        function filterCategories() {
+            const searchQuery = document.getElementById('searchBar').value.toLowerCase();
+            const filtered = categories.filter(category =>
+                category.name.toLowerCase().includes(searchQuery) ||
+                (category.description && category.description.toLowerCase().includes(searchQuery))
+            );
+            displayCategories(filtered);
+        }
+
+        // Event listeners
+        document.getElementById('searchBar').addEventListener('input', filterCategories);
+
+        // Initial fetch on page load
+        document.addEventListener("DOMContentLoaded", fetchCategories);
+    </script>
 </body>
 </html>
