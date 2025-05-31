@@ -1,7 +1,7 @@
 <?php
 session_start();
 header("Content-Type: application/json");
-require_once "db_conn.php"; // Connects to database
+require_once "db_conn.php"; // This sets up $pdo
 
 $response = ["status" => "error", "message" => "Invalid request"];
 
@@ -15,42 +15,71 @@ $action = isset($_GET['action']) ? $_GET['action'] : '';
 
 // ** Place an Order (From Cart) **
 if ($action == "place_order") {
-    $query = "INSERT INTO orders (user_id, product_id, quantity, total_price, status)
-              SELECT user_id, product_id, quantity, (quantity * price) AS total_price, 'Pending'
-              FROM cart WHERE user_id = ?";
-    $stmt = $conn->prepare($query);
-    $stmt->bind_param("i", $user_id);
+    // Insert order(s) for all cart items for this user
+    try {
+        $pdo->beginTransaction();
 
-    if ($stmt->execute()) {
-        // Clear cart after placing order
-        $conn->query("DELETE FROM cart WHERE user_id = $user_id");
+        // Select all cart items for this user
+        $cartQuery = $pdo->prepare("SELECT product_id, quantity FROM cart WHERE user_id = ?");
+        $cartQuery->execute([$user_id]);
+        $cartItems = $cartQuery->fetchAll(PDO::FETCH_ASSOC);
+
+        if (!$cartItems) {
+            echo json_encode(["status" => "error", "message" => "Your cart is empty."]);
+            exit();
+        }
+
+        // Insert each cart item as an order
+        $orderQuery = $pdo->prepare("INSERT INTO orders (user_id, product_id, quantity, total_price, status) VALUES (?, ?, ?, ?, 'Pending')");
+        foreach ($cartItems as $item) {
+            // Fetch product price for the item
+            $priceQuery = $pdo->prepare("SELECT price FROM products WHERE id = ?");
+            $priceQuery->execute([$item['product_id']]);
+            $product = $priceQuery->fetch(PDO::FETCH_ASSOC);
+            $total_price = $product ? $item['quantity'] * $product['price'] : 0;
+
+            $orderQuery->execute([$user_id, $item['product_id'], $item['quantity'], $total_price]);
+        }
+
+        // Clear the cart after placing the order(s)
+        $clearCart = $pdo->prepare("DELETE FROM cart WHERE user_id = ?");
+        $clearCart->execute([$user_id]);
+
+        $pdo->commit();
         $response = ["status" => "success", "message" => "Order placed successfully"];
-    } else {
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        error_log("Order placement error: " . $e->getMessage());
         $response = ["status" => "error", "message" => "Order placement failed"];
     }
 }
 
 // ** View Orders for Logged-in User **
 elseif ($action == "view_orders") {
-    $query = "SELECT orders.id, products.name, orders.quantity, orders.total_price, orders.status
-              FROM orders JOIN products ON orders.product_id = products.id
-              WHERE orders.user_id = ?";
-    $stmt = $conn->prepare($query);
-    $stmt->bind_param("i", $user_id);
-    $stmt->execute();
-    $result = $stmt->get_result();
-
-    $orders = [];
-    while ($row = $result->fetch_assoc()) {
-        $orders[] = $row;
+    try {
+        $query = "SELECT 
+                    orders.id AS order_id,
+                    orders.created_at AS date,
+                    products.name AS items,
+                    orders.total_price,
+                    orders.status
+                  FROM orders
+                  JOIN products ON orders.product_id = products.id
+                  WHERE orders.user_id = ?
+                  ORDER BY orders.created_at DESC";
+        $stmt = $pdo->prepare($query);
+        $stmt->execute([$user_id]);
+        $orders = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            // Optionally format date here
+            $orders[] = $row;
+        }
+        $response = ["status" => "success", "orders" => $orders];
+    } catch (Exception $e) {
+        error_log("View orders error: " . $e->getMessage());
+        $response = ["status" => "error", "message" => "Could not fetch orders"];
     }
-
-    $response = ["status" => "success", "orders" => $orders];
 }
-
-
-
-
 
 echo json_encode($response);
 ?>
