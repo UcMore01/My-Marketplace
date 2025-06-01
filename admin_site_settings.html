@@ -15,6 +15,52 @@
   <script src="/js/bootstrap.bundle.min.js"></script>
   <script>
     // JS for fetching and saving site settings
+
+    document.addEventListener('DOMContentLoaded', () => {
+  fetchSettings();
+
+  document.getElementById('settings-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    saveSettings();
+  });
+});
+
+function fetchSettings() {
+  fetch('/api/settings')
+    .then(res => res.json())
+    .then(settings => {
+      // Example: populate form fields
+      document.getElementById('siteTitle').value = settings.siteTitle || '';
+      document.getElementById('adminEmail').value = settings.adminEmail || '';
+      document.getElementById('maintenanceMode').checked = !!settings.maintenanceMode;
+    })
+    .catch(() => {
+      alert('Failed to load settings.');
+    });
+}
+
+function saveSettings() {
+  const settings = {
+    siteTitle: document.getElementById('siteTitle').value,
+    adminEmail: document.getElementById('adminEmail').value,
+    maintenanceMode: document.getElementById('maintenanceMode').checked
+  };
+  fetch('/api/settings', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(settings)
+  })
+  .then(res => {
+    if (res.ok) {
+      alert('Settings saved successfully!');
+    } else {
+      throw new Error();
+    }
+  })
+  .catch(() => {
+    alert('Failed to save settings.');
+  });
+}
   </script>
 </body>
 </html>
