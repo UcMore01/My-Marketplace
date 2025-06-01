@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Manage Products</title>
+  <link rel="stylesheet" href="/css/bootstrap.min.css">
+</head>
+<body>
+  <!--#include virtual="navbar.html" -->
+  <?php require 'navbar.html'; ?>
+  <div class="container">
+    <h1 class="mb-4">Manage Products</h1>
+    <button class="btn btn-primary mb-3" onclick="showAddProductForm()">Add Product</button>
+    <div id="products-table">
+      <!-- Product table loads here -->
+    </div>
+    <div id="product-form" style="display:none;">
+      <!-- Product add/edit form goes here -->
+    </div>
+  </div>
+  <script src="/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // JS to fetch products and handle add/edit goes here
+    function showAddProductForm() {
+      document.getElementById('product-form').style.display = 'block';
+    }
+  </script>
+</body>
+</html>
