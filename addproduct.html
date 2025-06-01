@@ -30,51 +30,39 @@
         <form id="addProductForm" enctype="multipart/form-data">
             <!-- Product Name -->
             <div class="mb-3">
-                <label for="productName" class="form-label">Product Name</label>
-                <input type="text" class="form-control" id="productName" name="productName" required>
+                <label for="name" class="form-label">Product Name</label>
+                <input type="text" class="form-control" id="name" name="name" required>
             </div>
 
             <!-- Price -->
             <div class="mb-3">
-                <label for="productPrice" class="form-label">Price ($)</label>
-                <input type="number" class="form-control" id="productPrice" name="productPrice" step="0.01" required>
+                <label for="price" class="form-label">Price ($)</label>
+                <input type="number" class="form-control" id="price" name="price" step="0.01" min="0.01" required>
             </div>
 
-            <!-- Category -->
+            <!-- Category (use values as IDs or names as required by backend) -->
             <div class="mb-3">
-                <label for="productCategory" class="form-label">Category</label>
-                <select class="form-control" id="productCategory" name="productCategory" required>
+                <label for="category_id" class="form-label">Category</label>
+                <select class="form-control" id="category_id" name="category_id" required>
                     <option value="">Select a Category</option>
-                    <option value="Electronics">Electronics</option>
-                    <option value="Fashion">Fashion</option>
-                    <option value="Home">Home & Furniture</option>
-                    <option value="Books">Books</option>
-                    <option value="Toys">Toys & Games</option>
+                    <option value="1">Electronics</option>
+                    <option value="2">Fashion</option>
+                    <option value="3">Home & Furniture</option>
+                    <option value="4">Books</option>
+                    <option value="5">Toys & Games</option>
                 </select>
             </div>
 
             <!-- Description -->
             <div class="mb-3">
-                <label for="productDescription" class="form-label">Description</label>
-                <textarea class="form-control" id="productDescription" name="productDescription" rows="3" required></textarea>
-            </div>
-
-            <!-- Specifications -->
-            <div class="mb-3">
-                <label for="productSpecs" class="form-label">Specifications</label>
-                <textarea class="form-control" id="productSpecs" name="productSpecs" rows="2" placeholder="e.g., Color: Red, Size: M"></textarea>
-            </div>
-
-            <!-- Stock Quantity -->
-            <div class="mb-3">
-                <label for="stockQuantity" class="form-label">Stock Quantity</label>
-                <input type="number" class="form-control" id="stockQuantity" name="stockQuantity" required>
+                <label for="description" class="form-label">Description</label>
+                <textarea class="form-control" id="description" name="description" rows="3" required></textarea>
             </div>
 
             <!-- Main Product Image Upload -->
             <div class="mb-3">
                 <label class="form-label">Main Product Image</label>
-                <input type="file" class="form-control" id="productImage" name="productImage" accept="image/*" required>
+                <input type="file" class="form-control" id="productImage" name="image" accept="image/*" required>
                 <img id="imagePreview" style="max-width: 150px; margin-top: 10px; display: none;">
             </div>
 
