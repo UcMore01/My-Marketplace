@@ -15,6 +15,87 @@
   <script src="/js/bootstrap.bundle.min.js"></script>
   <script>
     // JS for fetching users and handling suspend/ban
+
+    document.addEventListener('DOMContentLoaded', () => {
+  loadUsers();
+});
+
+function loadUsers() {
+  fetch('/api/users')
+    .then(response => response.json())
+    .then(users => renderUsersTable(users))
+    .catch(error => {
+      document.getElementById('users-table').innerHTML = `<div class="alert alert-danger">Failed to load users.</div>`;
+      console.error(error);
+    });
+}
+
+function renderUsersTable(users) {
+  if (!users.length) {
+    document.getElementById('users-table').innerHTML = '<div class="alert alert-info">No users found.</div>';
+    return;
+  }
+  let table = `
+    <table class="table table-bordered">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Email</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${users.map(user => `
+          <tr>
+            <td>${user.id}</td>
+            <td>${user.email}</td>
+            <td>${user.status}</td>
+            <td>
+              <button class="btn btn-warning btn-sm" onclick="suspendUser('${user.id}')">Suspend</button>
+              <button class="btn btn-danger btn-sm" onclick="banUser('${user.id}')">Ban</button>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+  document.getElementById('users-table').innerHTML = table;
+}
+
+function suspendUser(userId) {
+  if (!confirm('Are you sure you want to suspend this user?')) return;
+  fetch(`/api/users/${userId}/suspend`, { method: 'PUT' })
+    .then(response => {
+      if (!response.ok) throw new Error('Failed to suspend user');
+      return response.json();
+    })
+    .then(() => {
+      alert('User suspended successfully');
+      loadUsers();
+    })
+    .catch(error => {
+      alert('Error suspending user');
+      console.error(error);
+    });
+}
+
+function banUser(userId) {
+  if (!confirm('Are you sure you want to ban this user?')) return;
+  fetch(`/api/users/${userId}/ban`, { method: 'PUT' })
+    .then(response => {
+      if (!response.ok) throw new Error('Failed to ban user');
+      return response.json();
+    })
+    .then(() => {
+      alert('User banned successfully');
+      loadUsers();
+    })
+    .catch(error => {
+      alert('Error banning user');
+      console.error(error);
+    });
+}
   </script>
 </body>
 </html>
