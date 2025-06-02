@@ -1,32 +1,40 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Admin Login</title>
+  <title>Admin Logout</title>
   <link rel="stylesheet" href="/css/bootstrap.min.css">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
 </head>
 <body>
-  <div class="container">
-    <h1 class="mb-4">Admin Login</h1>
-    <form id="login-form">
-      <div class="mb-3">
-        <label for="username" class="form-label">Username</label>
-        <input type="text" id="username" class="form-control" required>
+  <div class="container" style="max-width: 400px; margin: 80px auto; text-align: center;">
+    <div class="mt-5">
+      <div id="logout-message" class="alert alert-info">
+        Logging you out, please wait...
       </div>
-      <div class="mb-3">
-        <label for="password" class="form-label">Password</label>
-        <input type="password" id="password" class="form-control" required>
+      <div id="manual-link" class="d-none">
+        <a href="admin_login.html" class="btn btn-primary">Go to Login</a>
       </div>
-      <button type="submit" class="btn btn-primary">Login</button>
-    </form>
-    <div id="login-error" class="text-danger mt-2"></div>
+    </div>
   </div>
   <script src="/js/bootstrap.bundle.min.js"></script>
   <script>
-    // JS for handling login (call /api/admin/login.php)
-    document.getElementById('login-form').onsubmit = function(e) {
-      e.preventDefault();
-      // AJAX to /api/admin/login.php goes here
-    }
+    fetch('/admin_api/logout.php', { method: 'POST' })
+      .then(res => {
+        if (!res.ok) throw new Error();
+        return res.json();
+      })
+      .catch(() => { /* Ignore errors, show generic message */ })
+      .finally(() => {
+        document.getElementById('logout-message').textContent = "You have been logged out. Redirecting to login...";
+        setTimeout(function() {
+          window.location.href = "admin_login.html";
+        }, 1200);
+        setTimeout(function() { // Fallback: show link if redirect fails
+          document.getElementById('manual-link').classList.remove('d-none');
+        }, 4000);
+      });
   </script>
 </body>
 </html>
