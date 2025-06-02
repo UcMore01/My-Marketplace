@@ -2,6 +2,7 @@
 require_once "config.php"; // Database connection
 
 header("Content-Type: application/json");
+session_start(); // Start session at the top
 
 $method = $_SERVER['REQUEST_METHOD'];
 
@@ -27,24 +28,29 @@ if ($method === "POST") {
 
 function registerUser() {
     global $conn;
-    $name = htmlspecialchars(trim($_POST['name']));
-    $email = filter_var($_POST['email'], FILTER_VALIDATE_EMAIL);
-    $password = password_hash($_POST['password'], PASSWORD_BCRYPT);
-    
+    $name = htmlspecialchars(trim($_POST['name'] ?? ''));
+    $email = filter_var($_POST['email'] ?? '', FILTER_VALIDATE_EMAIL);
+    $password = $_POST['password'] ?? '';
+
     if (!$email) {
         echo json_encode(["status" => "error", "message" => "Invalid email address"]);
         return;
     }
-    
+    if (strlen($name) < 2 || strlen($password) < 6) {
+        echo json_encode(["status" => "error", "message" => "Invalid name or password too short"]);
+        return;
+    }
+    $passwordHash = password_hash($password, PASSWORD_BCRYPT);
+
     $checkUser = $conn->prepare("SELECT id FROM users WHERE email = ?");
     $checkUser->execute([$email]);
     if ($checkUser->rowCount() > 0) {
         echo json_encode(["status" => "error", "message" => "Email already exists"]);
         return;
     }
-    
+
     $stmt = $conn->prepare("INSERT INTO users (name, email, password) VALUES (?, ?, ?)");
-    if ($stmt->execute([$name, $email, $password])) {
+    if ($stmt->execute([$name, $email, $passwordHash])) {
         echo json_encode(["status" => "success", "message" => "User registered successfully"]);
     } else {
         echo json_encode(["status" => "error", "message" => "Registration failed"]);
@@ -53,21 +59,21 @@ function registerUser() {
 
 function loginUser() {
     global $conn;
-    $email = filter_var($_POST['email'], FILTER_VALIDATE_EMAIL);
-    $password = $_POST['password'];
-    
-    if (!$email) {
-        echo json_encode(["status" => "error", "message" => "Invalid email address"]);
+    $email = filter_var($_POST['email'] ?? '', FILTER_VALIDATE_EMAIL);
+    $password = $_POST['password'] ?? '';
+
+    if (!$email || !$password) {
+        echo json_encode(["status" => "error", "message" => "Invalid email or password"]);
         return;
     }
-    
-    $stmt = $conn->prepare("SELECT id, name, password FROM users WHERE email = ?");
+
+    $stmt = $conn->prepare("SELECT id, name, email, password FROM users WHERE email = ?");
     $stmt->execute([$email]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
-    
+
     if ($user && password_verify($password, $user['password'])) {
-        session_start();
         $_SESSION['user_id'] = $user['id'];
+        unset($user['password']); // Never return password hash
         echo json_encode(["status" => "success", "message" => "Login successful", "user" => $user]);
     } else {
         echo json_encode(["status" => "error", "message" => "Invalid credentials"]);
@@ -75,22 +81,27 @@ function loginUser() {
 }
 
 function updateProfile() {
-    session_start();
+    global $conn;
     if (!isset($_SESSION['user_id'])) {
         echo json_encode(["status" => "error", "message" => "Unauthorized access"]);
         return;
     }
-    
-    global $conn;
     $userId = $_SESSION['user_id'];
-    $name = htmlspecialchars(trim($_POST['name']));
-    $email = filter_var($_POST['email'], FILTER_VALIDATE_EMAIL);
-    
+    $name = htmlspecialchars(trim($_POST['name'] ?? ''));
+    $email = filter_var($_POST['email'] ?? '', FILTER_VALIDATE_EMAIL);
+
     if (!$email) {
         echo json_encode(["status" => "error", "message" => "Invalid email address"]);
         return;
     }
-    
+    // Check if email is taken by someone else
+    $check = $conn->prepare("SELECT id FROM users WHERE email = ? AND id != ?");
+    $check->execute([$email, $userId]);
+    if ($check->rowCount() > 0) {
+        echo json_encode(["status" => "error", "message" => "Email already in use"]);
+        return;
+    }
+
     $stmt = $conn->prepare("UPDATE users SET name = ?, email = ? WHERE id = ?");
     if ($stmt->execute([$name, $email, $userId])) {
         echo json_encode(["status" => "success", "message" => "Profile updated successfully"]);
