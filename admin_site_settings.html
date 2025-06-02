@@ -1,66 +1,82 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Site Settings</title>
+  <title>Admin Site Settings</title>
   <link rel="stylesheet" href="/css/bootstrap.min.css">
 </head>
 <body>
-  <!--#include virtual="navbar.html" -->
-  <div class="container">
+  <!--#include virtual="admin_navbar.html" -->
+  <div class="container mt-4">
     <h1 class="mb-4">Site Settings</h1>
-    <div id="settings-form">
-      <!-- Settings form loads here -->
-    </div>
+    <div id="settings-alert"></div>
+    <form id="settingsForm" class="mb-5">
+      <div class="mb-3">
+        <label for="siteName" class="form-label">Site Name</label>
+        <input type="text" class="form-control" id="siteName" name="site_name" required>
+      </div>
+      <div class="mb-3">
+        <label for="siteEmail" class="form-label">Site Email</label>
+        <input type="email" class="form-control" id="siteEmail" name="site_email" required>
+      </div>
+      <div class="mb-3">
+        <label for="maintenanceMode" class="form-label">Maintenance Mode</label>
+        <select class="form-control" id="maintenanceMode" name="maintenance_mode">
+          <option value="off">Off</option>
+          <option value="on">On</option>
+        </select>
+      </div>
+      <button type="submit" class="btn btn-primary">Save Settings</button>
+    </form>
   </div>
   <script src="/js/bootstrap.bundle.min.js"></script>
   <script>
-    // JS for fetching and saving site settings
+    document.addEventListener('DOMContentLoaded', function() {
+      // Fetch current settings on page load
+      fetch('/admin_settings/get.php')
+        .then(res => {
+          if (!res.ok) throw new Error('Failed to fetch settings');
+          return res.json();
+        })
+        .then(settings => {
+          document.getElementById('siteName').value = settings.site_name || '';
+          document.getElementById('siteEmail').value = settings.site_email || '';
+          document.getElementById('maintenanceMode').value = settings.maintenance_mode || 'off';
+        })
+        .catch(() => {
+          showAlert('Could not load settings.', 'danger');
+        });
 
-    document.addEventListener('DOMContentLoaded', () => {
-  fetchSettings();
+      document.getElementById('settingsForm').onsubmit = function(e) {
+        e.preventDefault();
+        const data = new URLSearchParams({
+          site_name: document.getElementById('siteName').value,
+          site_email: document.getElementById('siteEmail').value,
+          maintenance_mode: document.getElementById('maintenanceMode').value
+        });
+        fetch('/admin_settings/update.php', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+          body: data.toString()
+        })
+        .then(res => res.json())
+        .then(result => {
+          if(result.success) {
+            showAlert('Settings updated successfully.', 'success');
+          } else {
+            showAlert('Failed to update settings.', 'danger');
+          }
+        })
+        .catch(() => {
+          showAlert('Settings update failed.', 'danger');
+        });
+      };
 
-  document.getElementById('settings-form').addEventListener('submit', function(e) {
-    e.preventDefault();
-    saveSettings();
-  });
-});
-
-function fetchSettings() {
-  fetch('/api/settings')
-    .then(res => res.json())
-    .then(settings => {
-      // Example: populate form fields
-      document.getElementById('siteTitle').value = settings.siteTitle || '';
-      document.getElementById('adminEmail').value = settings.adminEmail || '';
-      document.getElementById('maintenanceMode').checked = !!settings.maintenanceMode;
-    })
-    .catch(() => {
-      alert('Failed to load settings.');
+      function showAlert(message, type) {
+        document.getElementById('settings-alert').innerHTML =
+          `<div class="alert alert-${type}">${message}</div>`;
+        setTimeout(() => { document.getElementById('settings-alert').innerHTML = ''; }, 4000);
+      }
     });
-}
-
-function saveSettings() {
-  const settings = {
-    siteTitle: document.getElementById('siteTitle').value,
-    adminEmail: document.getElementById('adminEmail').value,
-    maintenanceMode: document.getElementById('maintenanceMode').checked
-  };
-  fetch('/api/settings', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify(settings)
-  })
-  .then(res => {
-    if (res.ok) {
-      alert('Settings saved successfully!');
-    } else {
-      throw new Error();
-    }
-  })
-  .catch(() => {
-    alert('Failed to save settings.');
-  });
-}
   </script>
 </body>
 </html>
