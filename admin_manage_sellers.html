@@ -1,105 +1,108 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Admin Manage Content</title>
+  <title>Admin Manage Sellers</title>
   <link rel="stylesheet" href="/css/bootstrap.min.css">
 </head>
 <body>
   <!--#include virtual="admin_navbar.html" -->
   <div class="container mt-4">
-    <h1 class="mb-4">Manage Content</h1>
-    <div id="content-management">
-      <!-- Content management UI will be loaded here -->
+    <h1 class="mb-4">Manage Sellers</h1>
+    <div id="seller-management">
+      <!-- Sellers management UI will appear here -->
     </div>
   </div>
   <script src="/js/bootstrap.bundle.min.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded', function() {
-      fetchContent();
+      fetchSellers();
 
-      function fetchContent() {
-        fetch('/admin_content/list.php')
+      function fetchSellers() {
+        fetch('/admin_sellers/list.php')
           .then(res => {
-            if (!res.ok) throw new Error('Failed to fetch content');
+            if (!res.ok) throw new Error('Failed to fetch sellers');
             return res.json();
           })
-          .then(data => renderContent(data))
+          .then(data => renderSellers(data))
           .catch(() => {
-            document.getElementById('content-management').innerHTML = '<div class="alert alert-danger">Error loading content.</div>';
+            document.getElementById('seller-management').innerHTML = '<div class="alert alert-danger">Error loading sellers.</div>';
           });
       }
 
-      function renderContent(contents) {
+      function renderSellers(sellers) {
         let html = `
-          <button class="btn btn-primary mb-3" onclick="showContentModal()">Add Content</button>
           <table class="table table-bordered">
             <thead>
               <tr>
                 <th>ID</th>
-                <th>Type</th>
-                <th>Title</th>
-                <th>Image</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Shop Name</th>
                 <th>Status</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              ${contents.map(content => `
+              ${sellers.map(seller => `
                 <tr>
-                  <td>${content.id}</td>
-                  <td>${content.type}</td>
-                  <td>${content.title}</td>
-                  <td>${content.image_url ? `<img src="${content.image_url}" style="width:50px;">` : ''}</td>
-                  <td>${content.status}</td>
+                  <td>${seller.id}</td>
+                  <td>${seller.name}</td>
+                  <td>${seller.email}</td>
+                  <td>${seller.shop_name || ''}</td>
                   <td>
-                    <button class="btn btn-warning btn-sm" onclick='showContentModal(${JSON.stringify(content)})'>Edit</button>
-                    <button class="btn btn-danger btn-sm" onclick='deleteContent(${content.id})'>Delete</button>
+                    <span class="badge bg-${seller.status === 'active' ? 'success' : seller.status === 'blocked' ? 'danger' : 'secondary'}">
+                      ${seller.status.charAt(0).toUpperCase() + seller.status.slice(1)}
+                    </span>
+                  </td>
+                  <td>
+                    <button class="btn btn-sm btn-warning" onclick='showSellerModal(${JSON.stringify(seller)})'>Edit</button>
+                    ${seller.status === 'pending' ? 
+                      `<button class="btn btn-sm btn-success" onclick="approveSeller(${seller.id})">Approve</button>` : ''}
+                    ${seller.status === 'active' ? 
+                      `<button class="btn btn-sm btn-danger" onclick="blockSeller(${seller.id})">Block</button>` : ''}
+                    ${seller.status === 'blocked' ? 
+                      `<button class="btn btn-sm btn-success" onclick="unblockSeller(${seller.id})">Unblock</button>` : ''}
+                    <button class="btn btn-sm btn-danger" onclick="deleteSeller(${seller.id})">Delete</button>
                   </td>
                 </tr>
               `).join('')}
             </tbody>
           </table>
+          <button class="btn btn-primary mt-3" onclick="showSellerModal()">Add Seller</button>
         `;
-        document.getElementById('content-management').innerHTML = html;
+        document.getElementById('seller-management').innerHTML = html;
       }
 
-      window.showContentModal = function(content) {
+      window.showSellerModal = function(seller) {
         let modalHtml = `
-          <div class="modal fade" id="contentModal" tabindex="-1">
+          <div class="modal fade" id="sellerModal" tabindex="-1">
             <div class="modal-dialog">
               <div class="modal-content">
-                <form id="contentForm">
+                <form id="sellerForm">
                   <div class="modal-header">
-                    <h5 class="modal-title">${content ? 'Edit' : 'Add'} Content</h5>
+                    <h5 class="modal-title">${seller ? 'Edit Seller' : 'Add Seller'}</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                   </div>
                   <div class="modal-body">
-                    <input type="hidden" id="contentId" value="${content?.id || ''}">
+                    <input type="hidden" id="sellerId" value="${seller?.id || ''}">
                     <div class="mb-2">
-                      <label>Type</label>
-                      <select class="form-control" id="contentType" required>
-                        <option value="banner" ${content?.type === 'banner' ? 'selected' : ''}>Banner</option>
-                        <option value="blog" ${content?.type === 'blog' ? 'selected' : ''}>Blog</option>
-                        <option value="page" ${content?.type === 'page' ? 'selected' : ''}>Page</option>
-                      </select>
+                      <label>Name</label>
+                      <input type="text" class="form-control" id="sellerName" value="${seller?.name || ''}" required>
                     </div>
                     <div class="mb-2">
-                      <label>Title</label>
-                      <input type="text" class="form-control" id="contentTitle" value="${content?.title || ''}" required>
+                      <label>Email</label>
+                      <input type="email" class="form-control" id="sellerEmail" value="${seller?.email || ''}" required>
                     </div>
                     <div class="mb-2">
-                      <label>Image URL</label>
-                      <input type="text" class="form-control" id="contentImage" value="${content?.image_url || ''}">
-                    </div>
-                    <div class="mb-2">
-                      <label>Body</label>
-                      <textarea class="form-control" id="contentBody">${content?.body || ''}</textarea>
+                      <label>Shop Name</label>
+                      <input type="text" class="form-control" id="shopName" value="${seller?.shop_name || ''}">
                     </div>
                     <div class="mb-2">
                       <label>Status</label>
-                      <select class="form-control" id="contentStatus">
-                        <option value="active" ${content?.status === 'active' ? 'selected' : ''}>Active</option>
-                        <option value="inactive" ${content?.status === 'inactive' ? 'selected' : ''}>Inactive</option>
+                      <select class="form-control" id="sellerStatus">
+                        <option value="pending" ${seller?.status === 'pending' ? 'selected' : ''}>Pending</option>
+                        <option value="active" ${seller?.status === 'active' ? 'selected' : ''}>Active</option>
+                        <option value="blocked" ${seller?.status === 'blocked' ? 'selected' : ''}>Blocked</option>
                       </select>
                     </div>
                   </div>
@@ -112,27 +115,25 @@
             </div>
           </div>
         `;
-        // Remove old modal if exists
-        let oldModal = document.getElementById('contentModal');
+        let oldModal = document.getElementById('sellerModal');
         if (oldModal) oldModal.remove();
         document.body.insertAdjacentHTML('beforeend', modalHtml);
 
-        let modal = new bootstrap.Modal(document.getElementById('contentModal'));
+        let modal = new bootstrap.Modal(document.getElementById('sellerModal'));
         modal.show();
 
-        document.getElementById('contentForm').onsubmit = function(e) {
+        document.getElementById('sellerForm').onsubmit = function(e) {
           e.preventDefault();
-          const id = document.getElementById('contentId').value;
+          const id = document.getElementById('sellerId').value;
           const data = new URLSearchParams({
-            type: document.getElementById('contentType').value,
-            title: document.getElementById('contentTitle').value,
-            image_url: document.getElementById('contentImage').value,
-            body: document.getElementById('contentBody').value,
-            status: document.getElementById('contentStatus').value
+            name: document.getElementById('sellerName').value,
+            email: document.getElementById('sellerEmail').value,
+            shop_name: document.getElementById('shopName').value,
+            status: document.getElementById('sellerStatus').value
           });
-          let url = '/admin_content/add.php';
+          let url = '/admin_sellers/add.php';
           if(id) {
-            url = '/admin_content/edit.php';
+            url = '/admin_sellers/edit.php';
             data.append('id', id);
           }
           fetch(url, {
@@ -142,21 +143,54 @@
           })
           .then(res => res.json())
           .then(() => {
-            bootstrap.Modal.getInstance(document.getElementById('contentModal')).hide();
-            fetchContent();
+            bootstrap.Modal.getInstance(document.getElementById('sellerModal')).hide();
+            fetchSellers();
           });
         };
       };
 
-      window.deleteContent = function(id) {
-        if (!confirm('Are you sure you want to delete this content?')) return;
-        fetch('/admin_content/delete.php', {
+      window.approveSeller = function(id) {
+        if (!confirm('Approve this seller?')) return;
+        fetch('/admin_sellers/approve.php', {
           method: 'POST',
           headers: {'Content-Type': 'application/x-www-form-urlencoded'},
           body: 'id=' + encodeURIComponent(id)
         })
         .then(res => res.json())
-        .then(() => fetchContent());
+        .then(() => fetchSellers());
+      };
+
+      window.blockSeller = function(id) {
+        if (!confirm('Block this seller?')) return;
+        fetch('/admin_sellers/block.php', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+          body: 'id=' + encodeURIComponent(id)
+        })
+        .then(res => res.json())
+        .then(() => fetchSellers());
+      };
+
+      window.unblockSeller = function(id) {
+        if (!confirm('Unblock this seller?')) return;
+        fetch('/admin_sellers/unblock.php', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+          body: 'id=' + encodeURIComponent(id)
+        })
+        .then(res => res.json())
+        .then(() => fetchSellers());
+      };
+
+      window.deleteSeller = function(id) {
+        if (!confirm('Delete this seller?')) return;
+        fetch('/admin_sellers/delete.php', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+          body: 'id=' + encodeURIComponent(id)
+        })
+        .then(res => res.json())
+        .then(() => fetchSellers());
       };
     });
   </script>
