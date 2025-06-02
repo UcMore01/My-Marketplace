@@ -15,6 +15,69 @@
   <script src="/js/bootstrap.bundle.min.js"></script>
   <script>
     // JS for fetching sellers and handling approve/suspend
+    document.addEventListener('DOMContentLoaded', function() {
+  fetchSellers();
+
+  function fetchSellers() {
+    fetch('/admin_sellers/list.php')
+      .then(res => res.json())
+      .then(data => renderSellers(data))
+      .catch(() => {
+        document.getElementById('sellers-table').innerHTML = '<div class="alert alert-danger">Error loading sellers.</div>';
+      });
+  }
+
+  function renderSellers(sellers) {
+    let html = `
+      <table class="table table-bordered">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${sellers.map(seller => `
+            <tr>
+              <td>${seller.id}</td>
+              <td>${seller.name}</td>
+              <td>${seller.email}</td>
+              <td>${seller.status}</td>
+              <td>
+                <button class="btn btn-success btn-sm" onclick="approveSeller(${seller.id})" ${seller.status === 'approved' ? 'disabled' : ''}>Approve</button>
+                <button class="btn btn-warning btn-sm" onclick="suspendSeller(${seller.id})" ${seller.status === 'suspended' ? 'disabled' : ''}>Suspend</button>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+    document.getElementById('sellers-table').innerHTML = html;
+  }
+
+  window.approveSeller = function(id) {
+    fetch('/admin_sellers/approve.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'id=' + encodeURIComponent(id)
+    })
+    .then(res => res.json())
+    .then(() => fetchSellers());
+  }
+
+  window.suspendSeller = function(id) {
+    fetch('/admin_sellers/suspend.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'id=' + encodeURIComponent(id)
+    })
+    .then(res => res.json())
+    .then(() => fetchSellers());
+  }
+});
   </script>
 </body>
 </html>
