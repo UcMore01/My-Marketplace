@@ -8,20 +8,143 @@
   <!--#include virtual="navbar.html" -->
   <div class="container">
     <h1 class="mb-4">Manage Products</h1>
-    <button class="btn btn-primary mb-3" onclick="showAddProductForm()">Add Product</button>
     <div id="products-table">
       <!-- Product table loads here -->
     </div>
-    <div id="product-form" style="display:none;">
-      <!-- Product add/edit form goes here -->
+  </div>
+
+  <!-- Modal for Add/Edit -->
+  <div class="modal fade" tabindex="-1" id="productModal">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <form id="productForm">
+          <div class="modal-header">
+            <h5 class="modal-title" id="productModalTitle">Add/Edit Product</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" id="productId">
+            <div class="mb-2">
+              <label>Name</label>
+              <input type="text" class="form-control" id="productName" required>
+            </div>
+            <div class="mb-2">
+              <label>Price</label>
+              <input type="number" class="form-control" id="productPrice" required>
+            </div>
+            <div class="mb-2">
+              <label>Description</label>
+              <textarea class="form-control" id="productDescription"></textarea>
+            </div>
+            <div class="mb-2">
+              <label>Image URL</label>
+              <input type="text" class="form-control" id="productImageUrl">
+            </div>
+            <div class="mb-2">
+              <label>Category ID</label>
+              <input type="number" class="form-control" id="productCategoryId">
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary" id="submitProductBtn">Save</button>
+          </div>
+        </form>
+      </div>
     </div>
   </div>
+
   <script src="/js/bootstrap.bundle.min.js"></script>
   <script>
-    // JS to fetch products and handle add/edit goes here
-    function showAddProductForm() {
-      document.getElementById('product-form').style.display = 'block';
-    }
+    document.addEventListener('DOMContentLoaded', function() {
+      fetchProducts();
+
+      function fetchProducts() {
+        fetch('/admin_products/list.php')
+          .then(res => res.json())
+          .then(data => renderProducts(data))
+          .catch(() => {
+            document.getElementById('products-table').innerHTML = '<div class="alert alert-danger">Error loading products.</div>';
+          });
+      }
+
+      function renderProducts(products) {
+        let html = `
+          <button class="btn btn-primary mb-3" onclick="showProductModal()">Add Product</button>
+          <table class="table table-bordered">
+            <thead>
+              <tr>
+                <th>ID</th><th>Name</th><th>Price</th><th>Description</th><th>Image</th><th>Category</th><th>Status</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${products.map(product => `
+                <tr>
+                  <td>${product.id}</td>
+                  <td>${product.name}</td>
+                  <td>${product.price}</td>
+                  <td>${product.description || ''}</td>
+                  <td>${product.image_url ? `<img src="${product.image_url}" alt="img" style="width:50px;">` : ''}</td>
+                  <td>${product.category_id || ''}</td>
+                  <td>${product.status}</td>
+                  <td>
+                    <button class="btn btn-warning btn-sm" onclick='showProductModal(${JSON.stringify(product)})'>Edit</button>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+        document.getElementById('products-table').innerHTML = html;
+      }
+
+      window.showProductModal = function(product) {
+        const modalElement = document.getElementById('productModal');
+        const modal = new bootstrap.Modal(modalElement);
+        document.getElementById('productForm').reset();
+        document.getElementById('productModalTitle').innerText = product ? "Edit Product" : "Add Product";
+        if(product) {
+          document.getElementById('productId').value = product.id;
+          document.getElementById('productName').value = product.name;
+          document.getElementById('productPrice').value = product.price;
+          document.getElementById('productDescription').value = product.description || '';
+          document.getElementById('productImageUrl').value = product.image_url || '';
+          document.getElementById('productCategoryId').value = product.category_id || '';
+        } else {
+          document.getElementById('productId').value = '';
+        }
+        modal.show();
+      };
+
+      document.getElementById('productForm').onsubmit = function(e) {
+        e.preventDefault();
+        const id = document.getElementById('productId').value;
+        const data = new URLSearchParams({
+          name: document.getElementById('productName').value,
+          price: document.getElementById('productPrice').value,
+          description: document.getElementById('productDescription').value,
+          image_url: document.getElementById('productImageUrl').value,
+          category_id: document.getElementById('productCategoryId').value
+        });
+        let url = '/admin_products/add.php';
+        if(id) {
+          url = '/admin_products/edit.php';
+          data.append('id', id);
+        }
+        fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: data.toString()
+        })
+        .then(res => res.json())
+        .then(() => {
+          const modalElement = document.getElementById('productModal');
+          const modal = bootstrap.Modal.getInstance(modalElement);
+          modal.hide();
+          fetchProducts();
+        });
+      };
+    });
   </script>
 </body>
 </html>
