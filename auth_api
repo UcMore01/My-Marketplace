@@ -2,7 +2,7 @@
 require_once "config.php"; // Database connection
 
 header("Content-Type: application/json");
-session_start(); // Start session at the top
+session_start(); // Always start session at the top
 
 $method = $_SERVER['REQUEST_METHOD'];
 
@@ -28,26 +28,32 @@ if ($method === "POST") {
 
 function registerUser() {
     global $conn;
-    $name = htmlspecialchars(trim($_POST['name'] ?? ''));
-    $email = filter_var($_POST['email'] ?? '', FILTER_VALIDATE_EMAIL);
+    $name     = trim($_POST['name'] ?? '');
+    $email    = filter_var($_POST['email'] ?? '', FILTER_VALIDATE_EMAIL);
     $password = $_POST['password'] ?? '';
 
     if (!$email) {
         echo json_encode(["status" => "error", "message" => "Invalid email address"]);
         return;
     }
-    if (strlen($name) < 2 || strlen($password) < 6) {
-        echo json_encode(["status" => "error", "message" => "Invalid name or password too short"]);
+    if (strlen($name) < 2 || strlen($name) > 50) {
+        echo json_encode(["status" => "error", "message" => "Name must be between 2 and 50 characters"]);
         return;
     }
-    $passwordHash = password_hash($password, PASSWORD_BCRYPT);
+    if (strlen($password) < 6) {
+        echo json_encode(["status" => "error", "message" => "Password must be at least 6 characters"]);
+        return;
+    }
 
+    // Check for duplicate email
     $checkUser = $conn->prepare("SELECT id FROM users WHERE email = ?");
     $checkUser->execute([$email]);
     if ($checkUser->rowCount() > 0) {
         echo json_encode(["status" => "error", "message" => "Email already exists"]);
         return;
     }
+
+    $passwordHash = password_hash($password, PASSWORD_BCRYPT);
 
     $stmt = $conn->prepare("INSERT INTO users (name, email, password) VALUES (?, ?, ?)");
     if ($stmt->execute([$name, $email, $passwordHash])) {
@@ -59,7 +65,7 @@ function registerUser() {
 
 function loginUser() {
     global $conn;
-    $email = filter_var($_POST['email'] ?? '', FILTER_VALIDATE_EMAIL);
+    $email    = filter_var($_POST['email'] ?? '', FILTER_VALIDATE_EMAIL);
     $password = $_POST['password'] ?? '';
 
     if (!$email || !$password) {
@@ -73,7 +79,7 @@ function loginUser() {
 
     if ($user && password_verify($password, $user['password'])) {
         $_SESSION['user_id'] = $user['id'];
-        unset($user['password']); // Never return password hash
+        unset($user['password']); // Remove password hash before sending to client
         echo json_encode(["status" => "success", "message" => "Login successful", "user" => $user]);
     } else {
         echo json_encode(["status" => "error", "message" => "Invalid credentials"]);
@@ -87,14 +93,19 @@ function updateProfile() {
         return;
     }
     $userId = $_SESSION['user_id'];
-    $name = htmlspecialchars(trim($_POST['name'] ?? ''));
-    $email = filter_var($_POST['email'] ?? '', FILTER_VALIDATE_EMAIL);
+    $name   = trim($_POST['name'] ?? '');
+    $email  = filter_var($_POST['email'] ?? '', FILTER_VALIDATE_EMAIL);
 
     if (!$email) {
         echo json_encode(["status" => "error", "message" => "Invalid email address"]);
         return;
     }
-    // Check if email is taken by someone else
+    if (strlen($name) < 2 || strlen($name) > 50) {
+        echo json_encode(["status" => "error", "message" => "Name must be between 2 and 50 characters"]);
+        return;
+    }
+
+    // Check if new email is already in use by another user
     $check = $conn->prepare("SELECT id FROM users WHERE email = ? AND id != ?");
     $check->execute([$email, $userId]);
     if ($check->rowCount() > 0) {
