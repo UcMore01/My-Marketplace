@@ -14,55 +14,57 @@
   </div>
   <script src="/js/bootstrap.bundle.min.js"></script>
   <script>
-    // Fetch and display dashboard stats from your API here
     document.addEventListener('DOMContentLoaded', function() {
-  fetch('/admin_dashboard/stats.php')
-    .then(res => res.json())
-    .then(stats => {
-      renderDashboardStats(stats);
-    })
-    .catch(() => {
-      document.getElementById('dashboard-stats').innerHTML = '<div class="alert alert-danger">Failed to load dashboard statistics.</div>';
-    });
+      fetch('/admin_dashboard/stats.php')
+        .then(res => {
+          if (!res.ok) throw new Error('Failed to fetch stats');
+          return res.json();
+        })
+        .then(stats => {
+          renderDashboardStats(stats);
+        })
+        .catch(() => {
+          document.getElementById('dashboard-stats').innerHTML = '<div class="alert alert-danger">Failed to load dashboard statistics.</div>';
+        });
 
-  function renderDashboardStats(stats) {
-    let html = `
-      <div class="col-md-3 mb-3">
-        <div class="card text-white bg-primary">
-          <div class="card-body">
-            <h5 class="card-title">Total Users</h5>
-            <p class="card-text fs-2">${stats.total_users || 0}</p>
+      function renderDashboardStats(stats) {
+        let html = `
+          <div class="col-md-3 mb-3">
+            <div class="card text-white bg-primary">
+              <div class="card-body">
+                <h5 class="card-title">Total Users</h5>
+                <p class="card-text fs-2">${stats.total_users || 0}</p>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
-      <div class="col-md-3 mb-3">
-        <div class="card text-white bg-success">
-          <div class="card-body">
-            <h5 class="card-title">Total Orders</h5>
-            <p class="card-text fs-2">${stats.total_orders || 0}</p>
+          <div class="col-md-3 mb-3">
+            <div class="card text-white bg-success">
+              <div class="card-body">
+                <h5 class="card-title">Total Orders</h5>
+                <p class="card-text fs-2">${stats.total_orders || 0}</p>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
-      <div class="col-md-3 mb-3">
-        <div class="card text-white bg-warning">
-          <div class="card-body">
-            <h5 class="card-title">Total Sales</h5>
-            <p class="card-text fs-2">$${stats.total_sales ? Number(stats.total_sales).toFixed(2) : '0.00'}</p>
+          <div class="col-md-3 mb-3">
+            <div class="card text-white bg-warning">
+              <div class="card-body">
+                <h5 class="card-title">Total Sales</h5>
+                <p class="card-text fs-2">$${stats.total_sales ? Number(stats.total_sales).toFixed(2) : '0.00'}</p>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
-      <div class="col-md-3 mb-3">
-        <div class="card text-white bg-info">
-          <div class="card-body">
-            <h5 class="card-title">Total Products</h5>
-            <p class="card-text fs-2">${stats.total_products || 0}</p>
+          <div class="col-md-3 mb-3">
+            <div class="card text-white bg-info">
+              <div class="card-body">
+                <h5 class="card-title">Total Products</h5>
+                <p class="card-text fs-2">${stats.total_products || 0}</p>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
-    `;
-    document.getElementById('dashboard-stats').innerHTML = html;
-  }
-});
+        `;
+        document.getElementById('dashboard-stats').innerHTML = html;
+      }
+    });
   </script>
 </body>
 </html>
