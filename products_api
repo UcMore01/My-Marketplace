@@ -1,7 +1,6 @@
 <?php
 session_start();
-require_once "db_conn.php"; // Sets up $pdo
-
+require_once "db_conn.php";
 header("Content-Type: application/json");
 
 $method = $_SERVER["REQUEST_METHOD"];
@@ -10,62 +9,69 @@ if ($method === "GET") {
     fetchProducts();
 } elseif ($method === "POST") {
     if (!isset($_SESSION["user_id"])) {
+        http_response_code(401);
         echo json_encode(["status" => "error", "message" => "Unauthorized access. Please log in."]);
         exit();
     }
     addProduct();
 } else {
+    http_response_code(405);
     echo json_encode(["status" => "error", "message" => "Invalid request method"]);
     exit();
 }
 
-// Fetch products (PDO version)
 function fetchProducts()
 {
     global $pdo;
     try {
         $stmt = $pdo->prepare("SELECT id, name, description, price, image, category, brand, rating FROM products ORDER BY created_at DESC");
         $stmt->execute();
-        $products = [];
-        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            // Make sure image path is web-accessible
-            $row['image'] = htmlspecialchars($row['image']);
-            $products[] = $row;
-        }
+        $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
         echo json_encode(["status" => "success", "products" => $products]);
     } catch (Exception $e) {
+        http_response_code(500);
         echo json_encode(["status" => "error", "message" => "Failed to fetch products"]);
     }
 }
 
-// Add a product (PDO version)
 function addProduct()
 {
     global $pdo;
-
     $seller_id = $_SESSION["user_id"];
     $name = trim($_POST["name"] ?? "");
     $description = trim($_POST["description"] ?? "");
-    $price = $_POST["price"] ?? 0;
-    $category = $_POST["category"] ?? "";
-    $brand = $_POST["brand"] ?? "";
-    $rating = $_POST["rating"] ?? 0;
+    $price = filter_var($_POST["price"] ?? 0, FILTER_VALIDATE_FLOAT);
+    $category = trim($_POST["category"] ?? "");
+    $brand = trim($_POST["brand"] ?? "");
+    $rating = filter_var($_POST["rating"] ?? 0, FILTER_VALIDATE_INT);
 
     // Validate required fields
-    if (!$name || !$price || !$category) {
-        echo json_encode(["status" => "error", "message" => "Missing required fields"]);
+    if (!$name || $price === false || !$category) {
+        http_response_code(400);
+        echo json_encode(["status" => "error", "message" => "Missing or invalid required fields"]);
         exit();
     }
 
     // Handle image upload
     if (!isset($_FILES["image"]) || $_FILES["image"]["error"] != UPLOAD_ERR_OK) {
+        http_response_code(400);
         echo json_encode(["status" => "error", "message" => "Invalid image file"]);
         exit();
     }
+    $allowedExt = ['jpg', 'jpeg', 'png', 'gif'];
+    $fileInfo = pathinfo($_FILES["image"]["name"]);
+    $ext = strtolower($fileInfo['extension'] ?? '');
+    if (!in_array($ext, $allowedExt)) {
+        http_response_code(400);
+        echo json_encode(["status" => "error", "message" => "Only JPG, PNG, or GIF images allowed"]);
+        exit();
+    }
     $uploadDir = "uploads/";
-    if (!is_dir($uploadDir)) mkdir($uploadDir, 0777, true);
-    $imagePath = $uploadDir . basename($_FILES["image"]["name"]);
+    if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
+    $uniqueName = uniqid('img_') . '.' . $ext;
+    $imagePath = $uploadDir . $uniqueName;
     if (!move_uploaded_file($_FILES["image"]["tmp_name"], $imagePath)) {
+        http_response_code(500);
         echo json_encode(["status" => "error", "message" => "Failed to upload image"]);
         exit();
     }
@@ -73,8 +79,11 @@ function addProduct()
     try {
         $stmt = $pdo->prepare("INSERT INTO products (seller_id, name, description, price, image, category, brand, rating) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
         $stmt->execute([$seller_id, $name, $description, $price, $imagePath, $category, $brand, $rating]);
-        echo json_encode(["status" => "success", "message" => "Product added successfully"]);
+        $product_id = $pdo->lastInsertId();
+        http_response_code(201);
+        echo json_encode(["status" => "success", "message" => "Product added successfully", "product_id" => $product_id]);
     } catch (Exception $e) {
+        http_response_code(500);
         echo json_encode(["status" => "error", "message" => "Failed to add product"]);
     }
 }
