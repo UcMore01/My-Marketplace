@@ -63,10 +63,14 @@
               <a class="nav-link dropdown-toggle" href="#" id="profileDropdown" role="button"
                 data-bs-toggle="dropdown" aria-expanded="false">Profile</a>
               <ul class="dropdown-menu" aria-labelledby="profileDropdown">
-                <li><a class="dropdown-item" href="profile.html?tab=login">Login</a></li>
-                <li><a class="dropdown-item" href="profile.html?tab=Sign-up">Sign-up</a></li>
-                <li><a class="dropdown-item" href="profile.html?tab=settings">Profile Settings</a></li>
-                <li><a class="dropdown-item" href="order.html?tab=order">Order History</a></li>
+                <li id="loginMenu"><a class="dropdown-item" href="profile.html?tab=login">Login</a></li>
+                <li id="signupMenu"><a class="dropdown-item" href="profile.html?tab=Sign-up">Sign-up</a></li>
+                <li id="profileSettingsMenu"><a class="dropdown-item" href="profile.html?tab=settings">Profile Settings</a></li>
+                <li id="orderHistoryMenu"><a class="dropdown-item" href="order.html?tab=order">Order History</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li id="logoutMenu" style="display:none;">
+                  <a class="dropdown-item text-danger" href="#" id="logoutBtn">Logout</a>
+                </li>
               </ul>
             </li>
             <!-- Cart Dropdown -->
@@ -182,5 +186,45 @@
   </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+  // Simulate session: set this based on your real authentication logic.
+  // For example, check if sessionStorage.getItem('username') exists or use your own logic.
+  // Here for demo: change to true/false to simulate login status.
+  var isLoggedIn = false; // <-- Replace with your real check
+
+  // On page load, adjust menu items based on login status
+  document.addEventListener('DOMContentLoaded', function() {
+    if (isLoggedIn) {
+      document.getElementById('loginMenu').style.display = 'none';
+      document.getElementById('signupMenu').style.display = 'none';
+      document.getElementById('logoutMenu').style.display = 'block';
+    } else {
+      document.getElementById('loginMenu').style.display = 'block';
+      document.getElementById('signupMenu').style.display = 'block';
+      document.getElementById('logoutMenu').style.display = 'none';
+    }
+  });
+
+  // Logout button logic
+  document.addEventListener('DOMContentLoaded', function() {
+    var logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        fetch('logout.php')
+          .then(res => res.json())
+          .then(data => {
+            if (data.status === 'success') {
+              // Optionally clear sessionStorage/localStorage if used
+              window.location = 'login.html';
+            } else {
+              alert('Logout failed.');
+            }
+          })
+          .catch(() => alert('Logout failed.'));
+      });
+    }
+  });
+  </script>
 </body>
 </html>
