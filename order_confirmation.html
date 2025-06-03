@@ -1,107 +1,89 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Order Confirmation</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Order Confirmation</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
-    
-    <!-- Navbar -->
-    <nav class="navbar navbar-expand-lg navbar-light bg-light">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="index.html">Marketplace</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item"><a class="nav-link" href="profile.html">Profile</a></li>
-                    <li class="nav-item"><a class="nav-link" href="orders.html">Orders</a></li>
-                    <li class="nav-item"><a class="nav-link" href="#" onclick="logout()">Logout</a></li>
-                </ul>
-            </div>
-        </div>
-    </nav>
-    
-    <div class="container mt-5 text-center">
-        <div class="card p-4">
-            <h2 class="text-success">Thank You for Your Order!</h2>
-            <p>Your order has been placed successfully.</p>
-            <h5>Order ID: #123456</h5>
-            <p><strong>Estimated Delivery:</strong> February 10, 2025</p>
-            <hr>
-            <h5>Order Summary</h5>
-            <p><strong>Product Name</strong> - Quantity: 2 - Price: $100.00</p>
-            <p><strong>Total:</strong> $100.00</p>
-            <hr>
-            <button class="btn btn-primary" onclick="location.href='orders.html'">Track Order</button>
-            <button class="btn btn-success" onclick="location.href='index.html'">Continue Shopping</button>
-        </div>
+  <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <div class="container">
+      <a class="navbar-brand" href="index.html">Marketplace</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
+          <li class="nav-item"><a class="nav-link" href="profile.html">Profile</a></li>
+          <li class="nav-item"><a class="nav-link" href="order_details.html">Orders</a></li>
+          <li class="nav-item"><a class="nav-link" href="#" onclick="logout()">Logout</a></li>
+        </ul>
+      </div>
     </div>
-
-    <script>
-document.addEventListener("DOMContentLoaded", function () {
-    const cart = JSON.parse(localStorage.getItem("cart")) || [];
-    if (cart.length === 0) {
-        alert("Your cart is empty!");
-        window.location.href = "index.html";
-        return;
-    }
-
-    fetch("order_confirmation.php", {
+  </nav>
+  <main class="container my-5 text-center">
+    <div class="card p-4">
+      <div id="errorAlert"></div>
+      <h2 class="text-success">Thank You for Your Order!</h2>
+      <p>Your order has been placed successfully.</p>
+      <h5 id="orderId">Order ID: Loading...</h5>
+      <p><strong>Estimated Delivery:</strong> <span id="estimatedDelivery">Loading...</span></p>
+      <hr>
+      <h5>Order Summary</h5>
+      <div id="orderSummary"></div>
+      <hr>
+      <button class="btn btn-primary" id="trackOrderBtn">Track Order</button>
+      <button class="btn btn-success" onclick="location.href='index.html'">Continue Shopping</button>
+    </div>
+  </main>
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const cart = JSON.parse(localStorage.getItem("cart") || "[]");
+      if (cart.length === 0) {
+        showError("Your cart is empty!"); setTimeout(() => location.href = "index.html", 1200); return;
+      }
+      fetch("order_confirmation.php", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cart: cart })
-    })
-    .then(response => response.json())
-    .then(data => {
+        body: JSON.stringify({ cart })
+      })
+      .then(response => response.json())
+      .then(data => {
         if (data.status === "success") {
-            localStorage.removeItem("cart"); // Clear cart after order is placed
-            document.getElementById("orderId").innerText = data.order_id;
-            document.getElementById("estimatedDelivery").innerText = data.estimated_delivery;
+          localStorage.removeItem("cart");
+          document.getElementById("orderId").textContent = `Order ID: #${data.order_id}`;
+          document.getElementById("estimatedDelivery").textContent = data.estimated_delivery;
+          let orderSummary = "";
+          let total = 0;
+          data.items.forEach(item => {
+            orderSummary += `<p><strong>${sanitize(item.name)}</strong> - Quantity: ${item.quantity} - Price: $${Number(item.price).toFixed(2)}</p>`;
+            total += item.quantity * item.price;
+          });
+          orderSummary += `<p><strong>Total:</strong> $${total.toFixed(2)}</p>`;
+          document.getElementById("orderSummary").innerHTML = orderSummary;
+          document.getElementById("trackOrderBtn").onclick = () => location.href = `order_tracking.html?order_id=${data.order_id}`;
         } else {
-            alert(data.message);
-            window.location.href = "cart.html";
+          showError(data.message || "Order failed."); setTimeout(() => location.href = "cart.html", 1200);
         }
-    })
-    .catch(error => console.error("Error:", error));
-});
-
-    fetch("order_confirmation.php", {
-        method: "GET",
-        headers: { "Content-Type": "application/json" }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.status === "success") {
-            document.querySelector("h5").textContent = `Order ID: #${data.order_id}`;
-            document.querySelector("p strong").textContent = `Estimated Delivery: ${data.estimated_delivery}`;
-
-            let orderSummary = "";
-            let totalAmount = 0;
-
-            data.items.forEach(item => {
-                orderSummary += `<p><strong>${item.name}</strong> - Quantity: ${item.quantity} - Price: $${item.price}</p>`;
-                totalAmount += item.quantity * item.price;
-            });
-
-            orderSummary += `<p><strong>Total:</strong> $${totalAmount.toFixed(2)}</p>`;
-
-            document.querySelector(".card").innerHTML += orderSummary;
-        } else {
-            alert("Failed to fetch order details!");
-        }
-    })
-    .catch(error => console.error("Error fetching order details:", error));
-
-function logout() {
-    alert("Logging out...");
-    window.location.href = "logout.html";
-}
-
-    </script>
+      })
+      .catch(() => { showError("Failed to place order."); setTimeout(() => location.href = "cart.html", 1200); });
+      function showError(msg) {
+        document.getElementById("errorAlert").innerHTML = `<div class="alert alert-danger">${sanitize(msg)}</div>`;
+      }
+      function sanitize(str) {
+        if (typeof str !== "string") return "";
+        return str.replace(/[&<>\"'`=\/]/g, function (s) {
+          return ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;',
+            "'": '&#39;', '/': '&#x2F;', '`': '&#x60;', '=': '&#x3D;'
+          })[s];
+        });
+      }
+    });
+    function logout() { window.location.href = "logout.html"; }
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
