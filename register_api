@@ -1,0 +1,95 @@
+<?php
+require_once "db_conn.php";
+header("Content-Type: application/json");
+
+if ($_SERVER["REQUEST_METHOD"] !== "POST") {
+    http_response_code(405);
+    echo json_encode(["status" => "error", "message" => "Method not allowed"]);
+    exit();
+}
+
+$user_type = $_POST['user_type'] ?? 'buyer';
+$fullname = trim($_POST['fullname'] ?? '');
+$email = trim($_POST['email'] ?? '');
+$username = trim($_POST['username'] ?? '');
+$password = $_POST['password'] ?? '';
+$store_name = trim($_POST['store_name'] ?? '');
+$admin_code = $_POST['admin_code'] ?? '';
+
+if (!$fullname || !$email || !$username || !$password) {
+    echo json_encode(["status" => "error", "message" => "All fields are required."]);
+    exit();
+}
+if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    echo json_encode(["status" => "error", "message" => "Invalid email address."]);
+    exit();
+}
+if (strlen($password) < 6) {
+    echo json_encode(["status" => "error", "message" => "Password must be at least 6 characters."]);
+    exit();
+}
+
+// Seller fields
+$is_seller = $user_type === 'seller' ? 1 : 0;
+$seller_doc_path = null;
+$seller_status = null;
+if ($is_seller) {
+    $seller_status = 'pending';
+    if (!$store_name) {
+        echo json_encode(["status" => "error", "message" => "Store name is required for sellers."]);
+        exit();
+    }
+    if (!isset($_FILES['seller_doc']) || $_FILES['seller_doc']['error'] !== UPLOAD_ERR_OK) {
+        echo json_encode(["status" => "error", "message" => "Seller document required."]);
+        exit();
+    }
+    $allowed = ['pdf', 'jpg', 'jpeg', 'png'];
+    $ext = strtolower(pathinfo($_FILES['seller_doc']['name'], PATHINFO_EXTENSION));
+    if (!in_array($ext, $allowed)) {
+        echo json_encode(["status" => "error", "message" => "Invalid document type."]);
+        exit();
+    }
+    $upload_dir = 'uploads/seller_docs/';
+    if (!is_dir($upload_dir)) mkdir($upload_dir, 0755, true);
+    $uniqueName = uniqid('seller_') . '.' . $ext;
+    $seller_doc_path = $upload_dir . $uniqueName;
+    if (!move_uploaded_file($_FILES['seller_doc']['tmp_name'], $seller_doc_path)) {
+        echo json_encode(["status" => "error", "message" => "Failed to upload seller document."]);
+        exit();
+    }
+}
+
+// Admin fields
+$is_admin = $user_type === 'admin' ? 1 : 0;
+$admin_registration_code = 'YOUR_ADMIN_SECRET_CODE'; // Set a secure code in production!
+if ($is_admin) {
+    if (empty($admin_code) || $admin_code !== $admin_registration_code) {
+        echo json_encode(["status" => "error", "message" => "Invalid admin registration code."]);
+        exit();
+    }
+}
+
+// Check for duplicate email/username
+$stmt = $pdo->prepare("SELECT id FROM users WHERE email=? OR username=?");
+$stmt->execute([$email, $username]);
+if ($stmt->fetch()) {
+    echo json_encode(["status" => "error", "message" => "Email or username already exists."]);
+    exit();
+}
+
+$hash = password_hash($password, PASSWORD_DEFAULT);
+
+try {
+    $stmt = $pdo->prepare("INSERT INTO users (fullname, email, username, password, is_seller, is_admin, store_name, seller_doc, seller_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt->execute([
+        $fullname, $email, $username, $hash,
+        $is_seller, $is_admin,
+        ($is_seller ? $store_name : null),
+        $seller_doc_path,
+        $seller_status
+    ]);
+    echo json_encode(["status" => "success", "message" => "Registration successful!"]);
+} catch (Exception $e) {
+    echo json_encode(["status" => "error", "message" => "Registration failed."]);
+}
+?>
