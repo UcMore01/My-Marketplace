@@ -5,14 +5,46 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Products</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <style>
+        body {
+            background: #f8f9fa;
+        }
+        .product-card {
+            transition: box-shadow 0.2s, transform 0.2s;
+            border-radius: 20px;
+            border: none;
+        }
+        .product-card:hover {
+            box-shadow: 0 6px 32px rgba(33,37,41,0.10), 0 1.5px 4px rgba(33,37,41,0.04);
+            transform: translateY(-4px) scale(1.03);
+        }
+        .product-img {
+            height: 220px;
+            object-fit: cover;
+            border-top-left-radius: 20px;
+            border-top-right-radius: 20px;
+            background: #e9ecef;
+        }
+        .card-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+        .add-to-cart {
+            width: 48%;
+        }
+        @media (max-width: 575px) {
+            .product-img {
+                height: 160px;
+            }
+        }
+    </style>
 </head>
 <body>
 
     <!-- Navbar -->
-    <nav class="navbar navbar-expand-lg navbar-light bg-light">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="index.html">Marketplace</a>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="index.html">Marketplace</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
@@ -27,62 +59,33 @@
         </div>
     </nav>
 
-    <div class="container mt-4">
+    <div class="container py-5">
         <!-- Search Bar -->
-        <div class="mb-4">
-            <input type="text" class="form-control" id="searchBar" placeholder="Search products...">
+        <div class="row mb-4 justify-content-center">
+            <div class="col-12 col-sm-10 col-md-8 col-lg-6">
+                <input type="text" class="form-control form-control-lg rounded-pill shadow-sm" id="searchBar" placeholder="🔎 Search products...">
+            </div>
         </div>
 
+        <!-- Product Listings -->
         <div class="row">
-            <!-- Sidebar Filters -->
-            <div class="col-md-3">
-                <h4>Filters</h4>
-                <div class="mb-3">
-                    <label class="form-label">Price Range</label>
-                    <input type="range" class="form-range" min="0" max="1000" step="1" id="priceRange">
-                    <span id="priceRangeValue">$0 - $1000</span>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Brand</label>
-                    <select class="form-select" id="brandFilter">
-                        <option value="All Brands">All Brands</option>
-                        <!-- Brands will be populated dynamically -->
-                    </select>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Rating</label>
-                    <select class="form-select" id="ratingFilter">
-                        <option value="Any Rating">Any Rating</option>
-                        <option value="4">4 Stars & Up</option>
-                        <option value="3">3 Stars & Up</option>
-                    </select>
-                </div>
-            </div>
-
-            <!-- Product Listings -->
-            <div class="col-md-9">
-                <h2 class="mb-4">Products</h2>
-                <div class="row" id="productList">
-                    <!-- Products will be loaded here dynamically -->
-                </div>
-                <div id="noResults" class="text-center text-muted mt-4" style="display: none;">No products found.</div>
+            <div class="col-12">
+                <h2 class="mb-4 fw-bold text-center">Browse Our Products</h2>
             </div>
         </div>
+        <div class="row g-4" id="productList">
+            <!-- Products will be loaded here dynamically -->
+        </div>
+        <div id="noResults" class="text-center text-muted mt-4" style="display: none;">No products found.</div>
     </div>
 
     <script>
         // Globals
         let products = [];
-        let minPrice = 0;
-        let maxPrice = 1000;
 
         // DOM Elements
         const productList = document.getElementById("productList");
         const searchBar = document.getElementById("searchBar");
-        const priceRange = document.getElementById("priceRange");
-        const priceRangeValue = document.getElementById("priceRangeValue");
-        const brandFilter = document.getElementById("brandFilter");
-        const ratingFilter = document.getElementById("ratingFilter");
         const noResults = document.getElementById("noResults");
 
         // Fetch products from API
@@ -92,8 +95,6 @@
                 .then(data => {
                     if (data.status === "success" && Array.isArray(data.products)) {
                         products = data.products;
-                        populateBrands(products);
-                        setPriceRange(products);
                         displayProducts(products);
                     } else {
                         productList.innerHTML = "";
@@ -107,37 +108,6 @@
                 });
         }
 
-        // Populate brand filter options dynamically
-        function populateBrands(products) {
-            const brands = new Set();
-            products.forEach(product => {
-                if (product.brand && product.brand.trim() !== "") {
-                    brands.add(product.brand);
-                }
-            });
-            // Clear previous options except 'All Brands'
-            brandFilter.innerHTML = '<option value="All Brands">All Brands</option>';
-            brands.forEach(brand => {
-                brandFilter.innerHTML += `<option value="${brand}">${brand}</option>`;
-            });
-        }
-
-        // Set price range slider based on product data
-        function setPriceRange(products) {
-            let prices = products.map(p => parseFloat(p.price) || 0);
-            if (prices.length > 0) {
-                minPrice = Math.floor(Math.min(...prices));
-                maxPrice = Math.ceil(Math.max(...prices));
-            } else {
-                minPrice = 0;
-                maxPrice = 1000;
-            }
-            priceRange.min = minPrice;
-            priceRange.max = maxPrice;
-            priceRange.value = maxPrice;
-            priceRangeValue.innerText = `$${minPrice} - $${priceRange.value}`;
-        }
-
         // Display products in the DOM
         function displayProducts(filteredProducts) {
             productList.innerHTML = "";
@@ -145,22 +115,24 @@
 
             filteredProducts.forEach(product => {
                 const productCard = `
-                    <div class="col-md-4 mb-4">
-                        <div class="card h-100">
-                            <img src="${product.image ? product.image : 'images/no-image.png'}" class="card-img-top" alt="${product.name}">
-                            <div class="card-body text-center">
-                                <h5 class="card-title">${product.name}</h5>
-                                <p class="card-text mb-1">$${Number(product.price).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</p>
-                                <p class="card-text mb-1"><small class="text-muted">${product.brand ? product.brand : ''}</small></p>
-                                <p class="card-text mb-1"><small class="text-warning">${renderStars(product.rating)}</small></p>
-                                <a href="product_details.html?product=${product.id}" class="btn btn-primary mb-2">View Details</a>
-                                <button class="btn btn-success add-to-cart" 
-                                    data-id="${product.id}" 
-                                    data-name="${product.name}" 
-                                    data-price="${product.price}" 
-                                    data-image="${product.image}">
-                                    Add to Cart
-                                </button>
+                    <div class="col-12 col-sm-6 col-md-4 col-lg-3 d-flex align-items-stretch">
+                        <div class="card product-card shadow-sm w-100">
+                            <img src="${product.image ? product.image : 'images/no-image.png'}" 
+                                 class="product-img card-img-top" alt="${product.name}">
+                            <div class="card-body d-flex flex-column justify-content-between text-center">
+                                <h5 class="card-title mb-2">${product.name}</h5>
+                                <p class="card-text mb-1 fs-5 fw-semibold text-primary">$${Number(product.price).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</p>
+                                <div class="mt-auto d-flex justify-content-center gap-2">
+                                    <a href="product_details.html?product=${product.id}" class="btn btn-outline-primary rounded-pill shadow-sm px-3">View Details</a>
+                                    <button class="btn btn-success rounded-pill add-to-cart shadow-sm px-3" 
+                                        data-id="${product.id}" 
+                                        data-name="${product.name}" 
+                                        data-price="${product.price}" 
+                                        data-image="${product.image}">
+                                        <span class="d-none d-sm-inline">Add to Cart</span>
+                                        <span class="d-inline d-sm-none">+</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -174,19 +146,9 @@
             });
         }
 
-        // Render rating stars
-        function renderStars(rating) {
-            rating = parseInt(rating) || 0;
-            let stars = "";
-            for (let i = 1; i <= 5; i++) {
-                stars += i <= rating ? "★" : "☆";
-            }
-            return stars;
-        }
-
         // Add product to cart (localStorage)
         function addToCart(event) {
-            const button = event.target;
+            const button = event.target.closest("button");
             const product = {
                 id: button.getAttribute("data-id"),
                 name: button.getAttribute("data-name"),
@@ -200,41 +162,25 @@
             alert(`${product.name} added to cart!`);
         }
 
-        // Filter products according to user input
+        // Filter products according to search input
         function filterProducts() {
             let searchQuery = searchBar.value.toLowerCase();
-            let selectedBrand = brandFilter.value;
-            let selectedRating = ratingFilter.value;
-            let selectedMaxPrice = parseFloat(priceRange.value);
 
-            priceRangeValue.innerText = `$${minPrice} - $${selectedMaxPrice}`;
-
-            let filtered = products.filter(product => {
-                // Check search
-                let matchSearch = product.name.toLowerCase().includes(searchQuery);
-                // Check brand
-                let matchBrand = selectedBrand === "All Brands" || product.brand === selectedBrand;
-                // Check rating
-                let matchRating = selectedRating === "Any Rating" || (parseInt(product.rating) >= parseInt(selectedRating));
-                // Check price
-                let matchPrice = parseFloat(product.price) <= selectedMaxPrice;
-                return matchSearch && matchBrand && matchRating && matchPrice;
-            });
+            let filtered = products.filter(product => 
+                product.name.toLowerCase().includes(searchQuery)
+            );
 
             displayProducts(filtered);
         }
 
         // Event listeners for filtering
         searchBar.addEventListener("input", filterProducts);
-        brandFilter.addEventListener("change", filterProducts);
-        ratingFilter.addEventListener("change", filterProducts);
-        priceRange.addEventListener("input", filterProducts);
 
         // Load all products on page load
         document.addEventListener("DOMContentLoaded", function () {
             fetchProducts();
         });
     </script>
-
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
