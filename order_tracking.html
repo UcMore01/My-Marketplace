@@ -1,127 +1,112 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Order Tracking</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Order Tracking</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
-    <!-- Navbar -->
-    <nav class="navbar navbar-expand-lg navbar-light bg-light">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="index.html">Marketplace</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
-                    <li class="nav-item"><a class="nav-link" href="profile.html">Profile</a></li>
-                    <li class="nav-item"><a class="nav-link" href="orders.html">Orders</a></li>
-                    <li class="nav-item"><a class="nav-link" href="#" onclick="logout()">Logout</a></li>
-                </ul>
-            </div>
-        </div>
-    </nav>
-    
-    <div class="container mt-5">
-        <h2 class="text-center">Track Your Order</h2>
-        <div class="card p-4">
-            <h5 id="orderId">Order ID: Loading...</h5>
-            <p><strong id="estimatedDelivery">Estimated Delivery: Loading...</strong></p>
-            <hr>
-            <h5>Order Status</h5>
-            <ul class="list-group" id="trackingList">
-                <li class="list-group-item">Fetching tracking updates...</li>
-            </ul>
-            <hr>
-            <button class="btn btn-primary" onclick="location.href='orders.html'">Back to Orders</button>
-            <button class="btn btn-danger" onclick="location.href='contact.html'">Contact Support</button>
-        </div>
+  <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <div class="container">
+      <a class="navbar-brand" href="index.html">Marketplace</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
+          <li class="nav-item"><a class="nav-link" href="profile.html">Profile</a></li>
+          <li class="nav-item"><a class="nav-link" href="order_details.html">Orders</a></li>
+          <li class="nav-item"><a class="nav-link" href="#" onclick="logout()">Logout</a></li>
+        </ul>
+      </div>
     </div>
-
-    <script>
+  </nav>
+  <main class="container my-5">
+    <h2 class="text-center mb-4">Track Your Order</h2>
+    <div class="card p-4">
+      <div id="errorAlert"></div>
+      <h5 id="orderId">Order ID: Loading...</h5>
+      <p><strong id="estimatedDelivery">Estimated Delivery: Loading...</strong></p>
+      <hr>
+      <h5>Order Status</h5>
+      <ul class="list-group" id="trackingList">
+        <li class="list-group-item">Fetching tracking updates...</li>
+      </ul>
+      <hr>
+      <button class="btn btn-primary" onclick="location.href='order_details.html'">Back to Orders</button>
+      <button class="btn btn-danger" onclick="location.href='contact.html'">Contact Support</button>
+    </div>
+  </main>
+  <script>
     document.addEventListener("DOMContentLoaded", function () {
-        const urlParams = new URLSearchParams(window.location.search);
-        const orderId = urlParams.get("order_id");
-
-        if (!orderId) {
-            alert("Order ID is missing.");
-            document.getElementById("trackingList").innerHTML = `<li class="list-group-item text-danger">Order ID is missing.</li>`;
-            document.getElementById("orderId").textContent = "Order ID: N/A";
-            document.getElementById("estimatedDelivery").textContent = "Estimated Delivery: N/A";
-            return;
-        }
-
-        // Fetch tracking details from the backend
-        fetch(`order_tracking_api?order_id=${encodeURIComponent(orderId)}`)
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === "success") {
-                    document.getElementById("orderId").textContent = `Order ID: #${data.order_id}`;
-                    document.getElementById("estimatedDelivery").textContent = `Estimated Delivery: ${data.estimated_delivery}`;
-
-                    let trackingUpdates = "";
-                    if (data.tracking && data.tracking.length > 0) {
-                        data.tracking.forEach(update => {
-                            let statusClass = getStatusClass(update.status);
-                            trackingUpdates += `<li class="list-group-item ${statusClass}">${sanitize(update.updated_at)} - ${sanitize(update.location)} (${sanitize(update.status)})</li>`;
-                        });
-                    } else {
-                        trackingUpdates = `<li class="list-group-item">No tracking updates available yet.</li>`;
-                    }
-                    document.getElementById("trackingList").innerHTML = trackingUpdates;
-                } else {
-                    // Show error on the page and alert
-                    document.getElementById("trackingList").innerHTML = `<li class="list-group-item text-danger">${sanitize(data.message)}</li>`;
-                    document.getElementById("orderId").textContent = "Order ID: N/A";
-                    document.getElementById("estimatedDelivery").textContent = "Estimated Delivery: N/A";
-                    alert(data.message);
-                }
-            })
-            .catch(error => {
-                console.error("Error fetching tracking details:", error);
-                document.getElementById("trackingList").innerHTML = `<li class="list-group-item text-danger">Failed to load tracking details. Please try again later.</li>`;
-                document.getElementById("orderId").textContent = "Order ID: N/A";
-                document.getElementById("estimatedDelivery").textContent = "Estimated Delivery: N/A";
-            });
-
-        // Map status to Bootstrap class for color-coding
-        function getStatusClass(status) {
-            switch (status.toLowerCase()) {
-                case "order placed": return "list-group-item-success";
-                case "processing": return "list-group-item-success";
-                case "shipped": return "list-group-item-warning";
-                case "out for delivery": return "list-group-item-info";
-                case "delivered": return "list-group-item-primary";
-                default: return "";
+      const urlParams = new URLSearchParams(window.location.search);
+      const orderId = urlParams.get("order_id");
+      if (!orderId) {
+        showError("Order ID is missing.");
+        setTrackingNA();
+        return;
+      }
+      fetch(`order_tracking_api.php?order_id=${encodeURIComponent(orderId)}`)
+        .then(response => response.json())
+        .then(data => {
+          if (data.status === "success") {
+            document.getElementById("orderId").textContent = `Order ID: #${data.order_id}`;
+            document.getElementById("estimatedDelivery").textContent = `Estimated Delivery: ${data.estimated_delivery}`;
+            let trackingUpdates = "";
+            if (data.tracking && data.tracking.length > 0) {
+              data.tracking.forEach(update => {
+                let statusClass = getStatusClass(update.status);
+                trackingUpdates += `<li class="list-group-item ${statusClass}">${sanitize(update.updated_at)} - ${sanitize(update.location)} (${sanitize(update.status)})</li>`;
+              });
+            } else {
+              trackingUpdates = `<li class="list-group-item">No tracking updates available yet.</li>`;
             }
-        }
+            document.getElementById("trackingList").innerHTML = trackingUpdates;
+          } else {
+            showError(data.message || "Tracking info not found.");
+            setTrackingNA();
+          }
+        })
+        .catch(() => {
+          showError("Failed to load tracking details. Please try again later.");
+          setTrackingNA();
+        });
 
-        // Basic HTML escaping for safety
-        function sanitize(str) {
-            if (typeof str !== "string") return "";
-            return str.replace(/[&<>"'`=\/]/g, function (s) {
-                return ({
-                    '&': '&amp;',
-                    '<': '&lt;',
-                    '>': '&gt;',
-                    '"': '&quot;',
-                    "'": '&#39;',
-                    '/': '&#x2F;',
-                    '`': '&#x60;',
-                    '=': '&#x3D;'
-                })[s];
-            });
+      function setTrackingNA() {
+        document.getElementById("orderId").textContent = "Order ID: N/A";
+        document.getElementById("estimatedDelivery").textContent = "Estimated Delivery: N/A";
+        document.getElementById("trackingList").innerHTML = '<li class="list-group-item text-danger">N/A</li>';
+      }
+      function showError(msg) {
+        document.getElementById("errorAlert").innerHTML = `<div class="alert alert-danger">${sanitize(msg)}</div>`;
+      }
+      function getStatusClass(status) {
+        switch ((status || "").toLowerCase()) {
+          case "order placed": return "list-group-item-success";
+          case "processing": return "list-group-item-success";
+          case "shipped": return "list-group-item-warning";
+          case "out for delivery": return "list-group-item-info";
+          case "delivered": return "list-group-item-primary";
+          default: return "";
         }
+      }
+      function sanitize(str) {
+        if (typeof str !== "string") return "";
+        return str.replace(/[&<>\"'`=\/]/g, function (s) {
+          return ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;',
+            "'": '&#39;', '/': '&#x2F;', '`': '&#x60;', '=': '&#x3D;'
+          })[s];
+        });
+      }
     });
-
     function logout() {
-        alert("Logging out...");
-        window.location.href = "logout.html";
+      // Add real logout logic here!
+      window.location.href = "logout.html";
     }
-    </script>
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
