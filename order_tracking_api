@@ -1,10 +1,20 @@
 <?php
-require_once "db_conn.php"; // Connects to database
+require_once "db_conn.php";
 
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *'); // If your frontend is separate; remove if not needed
+// header('Access-Control-Allow-Origin: *'); // Uncomment only if using cross-origin frontend
+
+session_start(); // Only needed if you want to check user's session
+
+// --- AUTHORIZATION (optional, but recommended) ---
+// if (!isset($_SESSION['user_id'])) {
+//     http_response_code(403);
+//     echo json_encode(["status" => "error", "message" => "Unauthorized"]);
+//     exit;
+// }
 
 if (!isset($_GET['order_id'])) {
+    http_response_code(400);
     error_log("Order tracking error: Missing order_id. Params: " . json_encode($_GET));
     echo json_encode(["status" => "error", "message" => "Order ID is required"]);
     exit;
@@ -12,39 +22,45 @@ if (!isset($_GET['order_id'])) {
 
 $order_id = $_GET['order_id'];
 if (!is_numeric($order_id) || intval($order_id) <= 0) {
+    http_response_code(400);
     error_log("Order tracking error: Invalid order_id. Params: " . json_encode($_GET));
     echo json_encode(["status" => "error", "message" => "Invalid Order ID"]);
     exit;
 }
 $order_id = intval($order_id);
 
-// Fetch order details
-$orderQuery = $pdo->prepare("SELECT order_id, estimated_delivery FROM orders WHERE order_id = ?");
-if (!$orderQuery) {
-    error_log("Failed to prepare order query: " . implode(":", $pdo->errorInfo()));
-    echo json_encode(["status" => "error", "message" => "Internal server error"]);
-    exit;
-}
+// --- Fetch Order Details ---
+$orderQuery = $pdo->prepare("SELECT order_id, estimated_delivery, user_id FROM orders WHERE order_id = ?");
 $orderQuery->execute([$order_id]);
 $order = $orderQuery->fetch(PDO::FETCH_ASSOC);
 
 if (!$order) {
+    http_response_code(404);
     error_log("Order tracking error: Order not found. Order ID: $order_id");
     echo json_encode(["status" => "error", "message" => "Order not found"]);
     exit;
 }
 
-// Fetch tracking history (limit to 50 records for performance)
-$trackingQuery = $pdo->prepare("SELECT status, location, updated_at FROM order_tracking WHERE order_id = ? ORDER BY updated_at ASC LIMIT 50");
-if (!$trackingQuery) {
-    error_log("Failed to prepare tracking query: " . implode(":", $pdo->errorInfo()));
-    echo json_encode(["status" => "error", "message" => "Internal server error"]);
-    exit;
-}
+// --- AUTHORIZATION: Only allow order owner (uncomment if needed) ---
+// if ($_SESSION['user_id'] != $order['user_id']) {
+//     http_response_code(403);
+//     error_log("Order tracking error: Unauthorized access. User ID: ".$_SESSION['user_id'].", Order: ".json_encode($order));
+//     echo json_encode(["status" => "error", "message" => "Unauthorized access to order."]);
+//     exit;
+// }
+
+// --- Fetch Tracking History ---
+$trackingQuery = $pdo->prepare(
+    "SELECT status, location, updated_at 
+     FROM order_tracking 
+     WHERE order_id = ? 
+     ORDER BY updated_at ASC 
+     LIMIT 50"
+);
 $trackingQuery->execute([$order_id]);
 $trackingData = $trackingQuery->fetchAll(PDO::FETCH_ASSOC);
 
-// Response
+// --- Success Response ---
 $response = [
     "status" => "success",
     "order_id" => $order['order_id'],
