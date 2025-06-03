@@ -24,22 +24,61 @@
     </div>
   </nav>
   <main class="container my-5">
-    <h2 class="text-center mb-4">Track Your Order</h2>
+    <header>
+      <h2 class="text-center mb-4">Track Your Order</h2>
+    </header>
     <div class="card p-4">
-      <div id="errorAlert"></div>
+      <div id="errorAlert" tabindex="-1"></div>
       <h5 id="orderId">Order ID: Loading...</h5>
       <p><strong id="estimatedDelivery">Estimated Delivery: Loading...</strong></p>
       <hr>
       <h5>Order Status</h5>
       <ul class="list-group" id="trackingList">
-        <li class="list-group-item">Fetching tracking updates...</li>
+        <li class="list-group-item" id="loadingStatus">
+          <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+          Fetching tracking updates...
+        </li>
       </ul>
       <hr>
-      <button class="btn btn-primary" onclick="location.href='order_details.html'">Back to Orders</button>
-      <button class="btn btn-danger" onclick="location.href='contact.html'">Contact Support</button>
+      <button class="btn btn-primary" id="backToOrdersBtn" onclick="location.href='order_details.html'" aria-label="Back to Orders">Back to Orders</button>
+      <button class="btn btn-danger" id="contactSupportBtn" onclick="location.href='contact.html'" aria-label="Contact Support">Contact Support</button>
     </div>
   </main>
   <script>
+    function sanitize(str) {
+      if (typeof str !== "string") return "";
+      return str.replace(/[&<>\"'`=\/]/g, function (s) {
+        return ({
+          '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;',
+          "'": '&#39;', '/': '&#x2F;', '`': '&#x60;', '=': '&#x3D;'
+        })[s];
+      });
+    }
+    function setButtonsDisabled(disabled) {
+      document.getElementById('backToOrdersBtn').disabled = disabled;
+      document.getElementById('contactSupportBtn').disabled = disabled;
+    }
+    function showError(msg) {
+      const alert = document.getElementById("errorAlert");
+      alert.innerHTML = `<div class="alert alert-danger">${sanitize(msg)}</div>`;
+      alert.focus();
+    }
+    function setTrackingNA() {
+      document.getElementById("orderId").textContent = "Order ID: N/A";
+      document.getElementById("estimatedDelivery").textContent = "Estimated Delivery: N/A";
+      document.getElementById("trackingList").innerHTML = '<li class="list-group-item text-danger">N/A</li>';
+      setButtonsDisabled(true);
+    }
+    function getStatusClass(status) {
+      switch ((status || "").toLowerCase()) {
+        case "order placed": return "list-group-item-success";
+        case "processing": return "list-group-item-info";
+        case "shipped": return "list-group-item-warning";
+        case "out for delivery": return "list-group-item-primary";
+        case "delivered": return "list-group-item-secondary";
+        default: return "list-group-item-light";
+      }
+    }
     document.addEventListener("DOMContentLoaded", function () {
       const urlParams = new URLSearchParams(window.location.search);
       const orderId = urlParams.get("order_id");
@@ -48,12 +87,13 @@
         setTrackingNA();
         return;
       }
+      setButtonsDisabled(false);
       fetch(`order_tracking_api.php?order_id=${encodeURIComponent(orderId)}`)
         .then(response => response.json())
         .then(data => {
           if (data.status === "success") {
-            document.getElementById("orderId").textContent = `Order ID: #${data.order_id}`;
-            document.getElementById("estimatedDelivery").textContent = `Estimated Delivery: ${data.estimated_delivery}`;
+            document.getElementById("orderId").textContent = `Order ID: #${sanitize(data.order_id)}`;
+            document.getElementById("estimatedDelivery").textContent = `Estimated Delivery: ${sanitize(data.estimated_delivery)}`;
             let trackingUpdates = "";
             if (data.tracking && data.tracking.length > 0) {
               data.tracking.forEach(update => {
@@ -69,38 +109,11 @@
             setTrackingNA();
           }
         })
-        .catch(() => {
+        .catch((err) => {
+          console.error("Tracking fetch error:", err);
           showError("Failed to load tracking details. Please try again later.");
           setTrackingNA();
         });
-
-      function setTrackingNA() {
-        document.getElementById("orderId").textContent = "Order ID: N/A";
-        document.getElementById("estimatedDelivery").textContent = "Estimated Delivery: N/A";
-        document.getElementById("trackingList").innerHTML = '<li class="list-group-item text-danger">N/A</li>';
-      }
-      function showError(msg) {
-        document.getElementById("errorAlert").innerHTML = `<div class="alert alert-danger">${sanitize(msg)}</div>`;
-      }
-      function getStatusClass(status) {
-        switch ((status || "").toLowerCase()) {
-          case "order placed": return "list-group-item-success";
-          case "processing": return "list-group-item-success";
-          case "shipped": return "list-group-item-warning";
-          case "out for delivery": return "list-group-item-info";
-          case "delivered": return "list-group-item-primary";
-          default: return "";
-        }
-      }
-      function sanitize(str) {
-        if (typeof str !== "string") return "";
-        return str.replace(/[&<>\"'`=\/]/g, function (s) {
-          return ({
-            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;',
-            "'": '&#39;', '/': '&#x2F;', '`': '&#x60;', '=': '&#x3D;'
-          })[s];
-        });
-      }
     });
     function logout() {
       // Add real logout logic here!
