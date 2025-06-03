@@ -1,94 +1,99 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Order History</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Order History</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    .order-id { font-family: monospace; }
+  </style>
 </head>
 <body>
-    <!-- Navbar -->
-    <nav class="navbar navbar-expand-lg navbar-light bg-light">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="index.html">Marketplace</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
-                    <li class="nav-item"><a class="nav-link" href="profile.html">Profile</a></li>
-                    <li class="nav-item"><a class="nav-link" href="cart.html">Cart</a></li>
-                    <li class="nav-item"><a class="nav-link" href="wishlist.html">Wishlist</a></li>
-                    <li class="nav-item"><a class="nav-link active" href="order.html">Order History</a></li>
-                </ul>
-            </div>
-        </div>
-    </nav>
-    
-    <div class="container mt-5">
-        <h2>My Order History</h2>
-        <table class="table table-striped mt-3">
-            <thead>
-                <tr>
-                    <th>Order ID</th>
-                    <th>Date</th>
-                    <th>Items</th>
-                    <th>Total Price</th>
-                    <th>Status</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-            <tbody id="orderHistory">
-                <!-- Orders will be loaded dynamically -->
-            </tbody>
-        </table>
+  <!-- Navbar -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <div class="container">
+      <a class="navbar-brand" href="index.html">Marketplace</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
+          <li class="nav-item"><a class="nav-link" href="profile.html">Profile</a></li>
+          <li class="nav-item"><a class="nav-link" href="cart.html">Cart</a></li>
+          <li class="nav-item"><a class="nav-link" href="wishlist.html">Wishlist</a></li>
+          <li class="nav-item"><a class="nav-link active" href="order.html">Order History</a></li>
+          <li class="nav-item"><a class="nav-link" href="#" onclick="logout()">Logout</a></li>
+        </ul>
+      </div>
     </div>
+  </nav>
 
-    <script>
-    $(document).ready(function() {
-        fetchOrders();
-    });
+  <main class="container my-5">
+    <h2>My Order History</h2>
+    <div id="errorAlert"></div>
+    <table class="table table-striped mt-3" aria-label="Order History Table">
+      <thead>
+        <tr>
+          <th>Order ID</th>
+          <th>Date</th>
+          <th>Items</th>
+          <th>Total Price</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="orderHistory">
+        <!-- Orders will be loaded dynamically -->
+      </tbody>
+    </table>
+  </main>
 
+  <script>
+    document.addEventListener("DOMContentLoaded", fetchOrders);
     function fetchOrders() {
-        $.ajax({
-            url: "order_api.php?action=view_orders",
-            method: "GET",
-            dataType: "json",
-            success: function(response) {
-                if (response.status === "success" && response.orders.length > 0) {
-                    let ordersHtml = "";
-                    response.orders.forEach(order => {
-                        ordersHtml += `
-                            <tr>
-                                <td>${order.order_id}</td>
-                                <td>${order.date}</td>
-                                <td>${order.items}</td>
-                                <td>$${parseFloat(order.total_price).toFixed(2)}</td>
-                                <td>${order.status}</td>
-                                <td>
-                                    <a class="btn btn-sm btn-primary" href="order_tracking.html?order_id=${order.order_id}">Track</a>
-                                </td>
-                            </tr>
-                        `;
-                    });
-                    $("#orderHistory").html(ordersHtml);
-                } else {
-                    $("#orderHistory").html("<tr><td colspan='6' class='text-center'>No orders found</td></tr>");
-                }
-            },
-            error: function() {
-                $("#orderHistory").html("<tr><td colspan='6' class='text-center text-danger'>Failed to fetch orders. Please try again.</td></tr>");
-            }
+      fetch("order_api.php?action=view_orders")
+        .then(response => response.json())
+        .then(response => {
+          if (response.status === "success" && response.orders && response.orders.length > 0) {
+            let ordersHtml = "";
+            response.orders.forEach(order => {
+              ordersHtml += `
+                <tr>
+                  <td class="order-id">${sanitize(order.order_id)}</td>
+                  <td>${sanitize(order.date)}</td>
+                  <td>${sanitize(order.items)}</td>
+                  <td>$${Number(order.total_price).toFixed(2)}</td>
+                  <td>${sanitize(order.status)}</td>
+                  <td>
+                    <a class="btn btn-sm btn-primary" href="order_tracking.html?order_id=${encodeURIComponent(order.order_id)}" aria-label="Track Order ${sanitize(order.order_id)}">Track</a>
+                  </td>
+                </tr>`;
+            });
+            document.getElementById("orderHistory").innerHTML = ordersHtml;
+          } else {
+            document.getElementById("orderHistory").innerHTML = "<tr><td colspan='6' class='text-center'>No orders found</td></tr>";
+          }
+        })
+        .catch(() => {
+          document.getElementById("orderHistory").innerHTML = "<tr><td colspan='6' class='text-center text-danger'>Failed to fetch orders. Please try again.</td></tr>";
         });
     }
-
     function logout() {
-        alert("Logging out...");
-        window.location.href = "logout.html";
+      // Add real session logout logic if needed
+      window.location.href = "logout.html";
     }
-    </script>
+    function sanitize(str) {
+      if (typeof str !== "string") return "";
+      return str.replace(/[&<>\"'`=\/]/g, function (s) {
+        return ({
+          '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;',
+          "'": '&#39;', '/': '&#x2F;', '`': '&#x60;', '=': '&#x3D;'
+        })[s];
+      });
+    }
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
