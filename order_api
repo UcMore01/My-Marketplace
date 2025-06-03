@@ -3,64 +3,73 @@ session_start();
 header("Content-Type: application/json");
 require_once "db_conn.php"; // This sets up $pdo
 
-$response = ["status" => "error", "message" => "Invalid request"];
-
 if (!isset($_SESSION['user_id'])) {
     echo json_encode(["status" => "error", "message" => "Unauthorized access"]);
     exit();
 }
 
 $user_id = $_SESSION['user_id'];
-$action = isset($_GET['action']) ? $_GET['action'] : '';
+$action = $_GET['action'] ?? '';
 
-// ** Place an Order (From Cart) **
-if ($action == "place_order") {
-    // Insert order(s) for all cart items for this user
+$response = ["status" => "error", "message" => "Invalid request"];
+
+// --- PLACE ORDER ---
+if ($action === "place_order") {
     try {
         $pdo->beginTransaction();
 
-        // Select all cart items for this user
-        $cartQuery = $pdo->prepare("SELECT product_id, quantity FROM cart WHERE user_id = ?");
-        $cartQuery->execute([$user_id]);
-        $cartItems = $cartQuery->fetchAll(PDO::FETCH_ASSOC);
+        // Get cart items
+        $cartStmt = $pdo->prepare("SELECT product_id, quantity FROM cart WHERE user_id = ?");
+        $cartStmt->execute([$user_id]);
+        $cartItems = $cartStmt->fetchAll(PDO::FETCH_ASSOC);
 
         if (!$cartItems) {
             echo json_encode(["status" => "error", "message" => "Your cart is empty."]);
             exit();
         }
 
-        // Insert each cart item as an order
-        $orderQuery = $pdo->prepare("INSERT INTO orders (user_id, product_id, quantity, total_price, status) VALUES (?, ?, ?, ?, 'Pending')");
+        $orderIds = [];
         foreach ($cartItems as $item) {
-            // Fetch product price for the item
-            $priceQuery = $pdo->prepare("SELECT price FROM products WHERE id = ?");
-            $priceQuery->execute([$item['product_id']]);
-            $product = $priceQuery->fetch(PDO::FETCH_ASSOC);
-            $total_price = $product ? $item['quantity'] * $product['price'] : 0;
+            // Get product price
+            $prodStmt = $pdo->prepare("SELECT price, name FROM products WHERE id = ?");
+            $prodStmt->execute([$item['product_id']]);
+            $product = $prodStmt->fetch(PDO::FETCH_ASSOC);
+            if (!$product) {
+                throw new Exception("Product not found (ID: {$item['product_id']})");
+            }
+            $total_price = $item['quantity'] * $product['price'];
 
-            $orderQuery->execute([$user_id, $item['product_id'], $item['quantity'], $total_price]);
+            // Insert order row
+            $orderStmt = $pdo->prepare("INSERT INTO orders (user_id, product_id, quantity, total_price, status) VALUES (?, ?, ?, ?, 'Pending')");
+            $orderStmt->execute([$user_id, $item['product_id'], $item['quantity'], $total_price]);
+            $orderIds[] = $pdo->lastInsertId();
         }
 
-        // Clear the cart after placing the order(s)
+        // Clear cart
         $clearCart = $pdo->prepare("DELETE FROM cart WHERE user_id = ?");
         $clearCart->execute([$user_id]);
 
         $pdo->commit();
-        $response = ["status" => "success", "message" => "Order placed successfully"];
+        $response = [
+            "status" => "success",
+            "message" => "Order placed successfully",
+            "order_ids" => $orderIds
+        ];
     } catch (Exception $e) {
         $pdo->rollBack();
         error_log("Order placement error: " . $e->getMessage());
-        $response = ["status" => "error", "message" => "Order placement failed"];
+        $response = ["status" => "error", "message" => "Order placement failed: " . $e->getMessage()];
     }
 }
 
-// ** View Orders for Logged-in User **
-elseif ($action == "view_orders") {
+// --- VIEW ORDERS ---
+elseif ($action === "view_orders") {
     try {
         $query = "SELECT 
                     orders.id AS order_id,
                     orders.created_at AS date,
-                    products.name AS items,
+                    products.name AS item_name,
+                    orders.quantity,
                     orders.total_price,
                     orders.status
                   FROM orders
@@ -71,7 +80,11 @@ elseif ($action == "view_orders") {
         $stmt->execute([$user_id]);
         $orders = [];
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            // Optionally format date here
+            // Format date for display if needed
+            $row['date'] = date("Y-m-d H:i", strtotime($row['date']));
+            // Combine quantity and name for display
+            $row['items'] = "{$row['quantity']} x {$row['item_name']}";
+            unset($row['item_name'], $row['quantity']);
             $orders[] = $row;
         }
         $response = ["status" => "success", "orders" => $orders];
